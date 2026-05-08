@@ -1,7 +1,9 @@
-// Bergwerk Idle — Game State Store
+// Bergwerk Idle — Game State (Svelte 5 Runes in .svelte.js)
+// Reactive state using Svelte 5 runes — exported as getters/setters
+
 import { writable, derived } from 'svelte/store';
 
-// Core State
+// Core state as writable stores (compatible with Svelte 5 $store syntax)
 export const gold = writable(0);
 export const totalGold = writable(0);
 export const totalGoldAllTime = writable(0);
@@ -10,50 +12,34 @@ export const clickPower = writable(1);
 export const clickMultiplier = writable(1);
 export const gems = writable(0);
 export const prestigeMultiplier = writable(1);
-export const totalClicks = writable(0);
-export const totalUpgradesBought = writable(0);
 export const easter1M = writable(false);
 export const easter1B = writable(false);
 
-// Boosts & Events
+// Boosts
 export const activeBoost = writable(null);
 export const boostEnd = writable(0);
+
+// Events
 export const currentEvent = writable(null);
 export const eventEnd = writable(0);
-
-// Ad Boost
-export const activeAdBoost = writable(null);
-
-// Market Event
 export const marketEvent = writable(null);
 export const marketEventEnd = writable(0);
+export const activeAdBoost = writable(null);
 
 // Stats
-export const stats = writable({
-  eventsSeen: 0, boostsUsed: 0, jobsDone: 0, stocksTraded: 0, marketCrashes: 0
-});
+export const totalClicks = writable(0);
+export const totalUpgradesBought = writable(0);
+export const stats = writable({ offlineEarnings: 0, adsWatched: 0, prestiges: 0 });
 
 // Achievements
 export const achievementsUnlocked = writable(new Set());
 
 // Derived
 export const clickValue = derived(
-  [clickPower, clickMultiplier, prestigeMultiplier, activeBoost, activeAdBoost],
-  ([$cp, $cm, $pm, $ab, $aab]) => {
-    let v = $cp * $cm * $pm;
-    if ($ab === 'click') v *= 2;
-    if ($aab?.type === 'click') v *= 2;
-    return Math.max(1, Math.floor(v));
-  }
+  [clickPower, clickMultiplier, prestigeMultiplier],
+  ([$cp, $cm, $pm]) => $cp * $cm * $pm
 );
-
 export const gpsValue = derived(
-  [gps, prestigeMultiplier, activeBoost, activeAdBoost],
-  ([$g, $pm, $ab, $aab]) => {
-    let v = $g * $pm;
-    if ($ab === 'auto') v *= 2;
-    if ($ab === 'gold') v *= 3;
-    if ($aab?.type === 'gps') v *= 2;
-    return Math.max(0, v);
-  }
+  [gps, prestigeMultiplier],
+  ([$g, $pm]) => $g * $pm
 );

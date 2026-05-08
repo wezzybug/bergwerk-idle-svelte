@@ -2,9 +2,9 @@
   import { server } from '../services/server.js';
   import { fmt } from '../utils/format.js';
 
-  let type = 'gold';
-  let leaderboard = [];
-  let loading = false;
+  let type = $state('gold');
+  let leaderboard = $state([]);
+  let loading = $state(false);
 
   const labels = { gold: '💰 Gesamt-Gold', prestige: '✨ Prestige', clicks: '⛏️ Klicks' };
   const fmtVal = {
@@ -28,7 +28,6 @@
     loadLeaderboard();
   }
 
-  // Auto-load on mount + refresh every 60s
   import { onMount } from 'svelte';
   onMount(() => {
     loadLeaderboard();
@@ -39,9 +38,9 @@
 
 <div class="leaderboard-panel">
   <div class="tab-bar">
-    <button class="tab-btn" class:active={type==='gold'} on:click={()=>setType('gold')}>💰 Gold</button>
-    <button class="tab-btn" class:active={type==='prestige'} on:click={()=>setType('prestige')}>✨ Prestige</button>
-    <button class="tab-btn" class:active={type==='clicks'} on:click={()=>setType('clicks')}>⛏️ Klicks</button>
+    <button class="tab-btn" class:active={type==='gold'} onclick={()=>setType('gold')}>💰 Gold</button>
+    <button class="tab-btn" class:active={type==='prestige'} onclick={()=>setType('prestige')}>✨ Prestige</button>
+    <button class="tab-btn" class:active={type==='clicks'} onclick={()=>setType('clicks')}>⛏️ Klicks</button>
   </div>
 
   <div class="lb-title">{labels[type]}</div>

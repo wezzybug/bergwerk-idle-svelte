@@ -1,15 +1,15 @@
 <script>
-  import { gold, clickPower, gps, totalUpgradesBought } from '../stores/game.js';
+  import { gold, gps, clickPower, totalUpgradesBought } from '../stores/game.js';
   import { CLICK_UPGRADES, AUTO_UPGRADES, GEM_UPGRADES } from '../data/gameData.js';
   import { server } from '../services/server.js';
   import { fmt, cost } from '../utils/format.js';
 
-  let tab = 'click'; // click | auto | gem
+  let tab = $state('click');
 
   function recalcGPS() {
-    let b = 0;
-    AUTO_UPGRADES.forEach(u => b += u.gps * u.count);
-    $gps = b;
+    let total = 0;
+    AUTO_UPGRADES.forEach(u => total += u.gps * u.count);
+    $gps = total;
   }
 
   async function buyClick(i) {
@@ -31,22 +31,13 @@
       recalcGPS();
     }
   }
-
-  function buyGem(i) {
-    const u = GEM_UPGRADES[i];
-    const c = cost(u.base, u.mult, u.count);
-    // Gem upgrades are local-only for now
-    if ($gold >= c && (!u.max || u.count < u.max)) {
-      // Gems werden über prestige earned, nicht gold
-    }
-  }
 </script>
 
 <div class="upgrades-panel">
   <div class="tab-bar">
-    <button class="tab-btn" class:active={tab==='click'} on:click={()=>tab='click'}>⛏️ Klick</button>
-    <button class="tab-btn" class:active={tab==='auto'} on:click={()=>tab='auto'}>🤖 Auto</button>
-    <button class="tab-btn" class:active={tab==='gem'} on:click={()=>tab='gem'}>💎 Gems</button>
+    <button class="tab-btn" class:active={tab==='click'} onclick={()=>tab='click'}>⛏️ Klick</button>
+    <button class="tab-btn" class:active={tab==='auto'} onclick={()=>tab='auto'}>🤖 Auto</button>
+    <button class="tab-btn" class:active={tab==='gem'} onclick={()=>tab='gem'}>💎 Gems</button>
   </div>
 
   {#if tab === 'click'}
@@ -57,7 +48,7 @@
           <div class="upgrade-name">{u.name} <span class="count">x{u.count}</span></div>
           <div class="upgrade-desc">{u.desc}</div>
         </div>
-        <button class="upgrade-btn" disabled={$gold < c} on:click={()=>buyClick(i)}>
+        <button class="upgrade-btn" disabled={$gold < c} onclick={()=>buyClick(i)}>
           {fmt(c)} 🪙
         </button>
       </div>
@@ -72,7 +63,7 @@
           <div class="upgrade-name">{u.name} <span class="count">x{u.count}</span></div>
           <div class="upgrade-desc">{u.desc}</div>
         </div>
-        <button class="upgrade-btn" disabled={$gold < c} on:click={()=>buyAuto(i)}>
+        <button class="upgrade-btn" disabled={$gold < c} onclick={()=>buyAuto(i)}>
           {fmt(c)} 🪙
         </button>
       </div>

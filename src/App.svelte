@@ -1,7 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import { gold, totalGold, totalGoldAllTime, gps, prestigeMultiplier, clickPower, clickMultiplier, clickValue, gpsValue, totalClicks, totalUpgradesBought, gems, easter1M, easter1B, activeBoost, boostEnd, currentEvent, eventEnd, marketEvent, marketEventEnd, activeAdBoost, stats, achievementsUnlocked } from './stores/game.js';
-  import { CLICK_UPGRADES, AUTO_UPGRADES, GEM_UPGRADES, JOBS, STOCKS } from './data/gameData.js';
+  import { CLICK_UPGRADES, AUTO_UPGRADES, GEM_UPGRADES, JOBS, STOCKS, ACHIEVEMENTS } from './data/gameData.js';
   import { server, serverOnline, lastSync } from './services/server.js';
   import { generateDeviceId, fmt, cost } from './utils/format.js';
   import Mine from './components/Mine.svelte';
@@ -11,7 +11,7 @@
   import Leaderboard from './components/Leaderboard.svelte';
   import Prestige from './components/Prestige.svelte';
 
-  let tab = 'mine';
+  let tab = $state('mine');
   const tabs = [
     { id: 'mine', icon: '⛏️', label: 'Mine' },
     { id: 'jobs', icon: '🔨', label: 'Jobs' },
@@ -22,43 +22,70 @@
     { id: 'prestige', icon: '✨', label: 'Prestige' },
   ];
 
-  let stocksRef;
+  let stocksRef = $state(null);
 
   // Gold tick (GPS income)
-  let goldTick;
-  function startGoldTick() {
-    goldTick = setInterval(() => {
-      const earned = $gpsValue * ($prestigeMultiplier >= 1 ? 1 : 1);
+  onMount(() => {
+    // Load from localStorage
+    loadLocal();
+
+    // GPS tick
+    const goldTick = setInterval(() => {
+      const earned = $gpsValue;
       if (earned > 0) {
         $gold += earned;
         $totalGold += earned;
         $totalGoldAllTime += earned;
       }
     }, 1000);
+
+    // Save every 10s
+    const saveTick = setInterval(saveLocal, 10000);
+
+    // Achievement check every 5s
+    const achTick = setInterval(checkAchievements, 5000);
+
+    // Server sync
+    startSync();
+
+    // Offline earnings
+    const saved = JSON.parse(localStorage.getItem('bergwerk5') || '{}');
+    if (saved.lastSave) {
+      const elapsed = (Date.now() - saved.lastSave) / 1000;
+      if (elapsed > 30 && $gps > 0) {
+        const eff = Math.min(1, 0.5 + (GEM_UPGRADES[2]?.count || 0) * 0.2);
+        const earned = $gps * $prestigeMultiplier * elapsed * eff;
+        $gold += earned;
+        $totalGold += earned;
+        $totalGoldAllTime += earned;
+      }
+    }
+
+    return () => {
+      clearInterval(goldTick);
+      clearInterval(saveTick);
+      clearInterval(achTick);
+      server.destroy();
+    };
+  });
+
+  function saveLocal() {
+    localStorage.setItem('bergwerk5', JSON.stringify({
+      gold: $gold, totalGold: $totalGold, totalGoldAllTime: $totalGoldAllTime,
+      gems: $gems, prestigeMultiplier: $prestigeMultiplier,
+      clickPower: $clickPower, clickMultiplier: $clickMultiplier,
+      totalClicks: $totalClicks, totalUpgradesBought: $totalUpgradesBought,
+      easter1M: $easter1M, easter1B: $easter1B,
+      clickCounts: CLICK_UPGRADES.map(u => u.count),
+      autoCounts: AUTO_UPGRADES.map(u => u.count),
+      gemCounts: GEM_UPGRADES.map(u => u.count),
+      achievements: [...$achievementsUnlocked],
+      stats: $stats,
+      jobCounts: JOBS.map(j => j.count),
+      lastSave: Date.now()
+    }));
   }
 
-  // Save to localStorage every 10s
-  let saveTick;
-  function startSave() {
-    saveTick = setInterval(() => {
-      localStorage.setItem('bergwerk5', JSON.stringify({
-        gold: $gold, totalGold: $totalGold, totalGoldAllTime: $totalGoldAllTime,
-        gems: $gems, prestigeMultiplier: $prestigeMultiplier,
-        clickPower: $clickPower, clickMultiplier: $clickMultiplier,
-        totalClicks: $totalClicks, totalUpgradesBought: $totalUpgradesBought,
-        easter1M: $easter1M, easter1B: $easter1B,
-        clickCounts: CLICK_UPGRADES.map(u => u.count),
-        autoCounts: AUTO_UPGRADES.map(u => u.count),
-        gemCounts: GEM_UPGRADES.map(u => u.count),
-        achievements: [...$achievementsUnlocked],
-        stats: $stats,
-        jobCounts: JOBS.map(j => j.count),
-        lastSave: Date.now()
-      }));
-    }, 10000);
-  }
-
-  // Load from localStorage
   function loadLocal() {
     const d = localStorage.getItem('bergwerk5');
     if (!d) return;
@@ -84,17 +111,14 @@
     } catch (e) { console.warn('Load error:', e); }
   }
 
-  // Server sync
   function startSync() {
     const deviceId = generateDeviceId();
     server.init(deviceId);
 
-    // Override sync to load server data into stores
     const origSync = server.sync.bind(server);
     server.sync = async function() {
       const data = await origSync();
       if (data && data.success && data.state) {
-        // Only take HIGHER values from server (don't overwrite local progress)
         if (data.state.gold > $gold) $gold = data.state.gold;
         if (data.state.total_gold > $totalGold) $totalGold = data.state.total_gold;
         if (data.state.total_gold_all_time > $totalGoldAllTime) $totalGoldAllTime = data.state.total_gold_all_time;
@@ -108,7 +132,6 @@
         if (data.state.easter_1m) $easter1M = true;
         if (data.state.easter_1b) $easter1B = true;
 
-        // Upgrades (take max)
         if (data.upgrades && data.upgrades.length > 0) {
           data.upgrades.forEach(u => {
             const lists = { click: CLICK_UPGRADES, auto: AUTO_UPGRADES, gem: GEM_UPGRADES };
@@ -119,23 +142,19 @@
           });
         }
 
-        // Jobs (take max)
         if (data.jobs && data.jobs.length > 0) {
           data.jobs.forEach(j => { if (JOBS[j.job_index]) JOBS[j.job_index].count = Math.max(JOBS[j.job_index].count, j.count); });
         }
 
-        // Stock holdings + prices
         if (stocksRef) {
           stocksRef.loadServerHoldings(data.stocks);
           stocksRef.loadServerPrices(data.stock_prices);
         }
 
-        // Achievements
         if (data.achievements && data.achievements.length > 0) {
           data.achievements.forEach(a => $achievementsUnlocked.add(a.achievement_id));
         }
 
-        // Push local state up
         server.push({
           gold: $gold, total_gold: $totalGold, total_gold_all_time: $totalGoldAllTime,
           gems: $gems, prestige_multiplier: $prestigeMultiplier,
@@ -154,13 +173,11 @@
     };
   }
 
-  // Achievement checker
   function checkAchievements() {
     const state = {
       totalClicks: $totalClicks, totalGoldAllTime: $totalGoldAllTime,
       gps: $gps, prestigeMultiplier: $prestigeMultiplier,
-      totalUpgradesBought: $totalUpgradesBought,
-      totalShares: 0 // TODO: from stocks
+      totalUpgradesBought: $totalUpgradesBought, totalShares: 0
     };
     ACHIEVEMENTS?.forEach(a => {
       if (!$achievementsUnlocked.has(a.id) && a.check(state)) {
@@ -168,29 +185,6 @@
       }
     });
   }
-
-  onMount(() => {
-    loadLocal();
-    startGoldTick();
-    startSave();
-    startSync();
-
-    // Achievement check every 5s
-    setInterval(checkAchievements, 5000);
-
-    // Offline earnings
-    const saved = JSON.parse(localStorage.getItem('bergwerk5') || '{}');
-    if (saved.lastSave) {
-      const elapsed = (Date.now() - saved.lastSave) / 1000;
-      if (elapsed > 30 && $gps > 0) {
-        const eff = Math.min(1, 0.5 + GEM_UPGRADES[2].count * 0.2);
-        const earned = $gps * $prestigeMultiplier * elapsed * eff;
-        $gold += earned;
-        $totalGold += earned;
-        $totalGoldAllTime += earned;
-      }
-    }
-  });
 </script>
 
 <main>
@@ -203,7 +197,6 @@
     </div>
   </header>
 
-  <!-- Tab Content -->
   <div class="content">
     {#if tab === 'mine'}
       <Mine />
@@ -233,10 +226,9 @@
     {/if}
   </div>
 
-  <!-- Tab Bar -->
   <nav class="tab-bar-bottom">
     {#each tabs as t}
-      <button class="tab" class:active={tab===t.id} on:click={()=>tab=t.id}>
+      <button class="tab" class:active={tab===t.id} onclick={()=>tab=t.id}>
         <span class="tab-icon">{t.icon}</span>
         <span class="tab-label">{t.label}</span>
       </button>

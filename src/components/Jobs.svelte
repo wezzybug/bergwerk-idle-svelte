@@ -2,19 +2,10 @@
   import { gold, totalGold, totalGoldAllTime, gps, prestigeMultiplier } from '../stores/game.js';
   import { JOBS } from '../data/gameData.js';
   import { server } from '../services/server.js';
-  import { fmt, fmtTime, cost } from '../utils/format.js';
+  import { fmt, fmtTime } from '../utils/format.js';
 
-  let activeJobs = {};  // { jobId: { start, duration, done } }
-  let jobCooldowns = {}; // { jobId: endTime }
-
-  setInterval(() => {
-    // Check completed jobs
-    for (const [id, job] of Object.entries(activeJobs)) {
-      if (!job.done && Date.now() - job.start >= job.duration * 1000) {
-        job.done = true;
-      }
-    }
-  }, 1000);
+  let activeJobs = $state({});
+  let jobCooldowns = $state({});
 
   function jobReward(job) {
     if (job.multReward) {
@@ -75,9 +66,9 @@
       {:else if isActive && !isDone}
         <button class="job-btn" disabled>⏳ {fmtTime(timeLeft)}</button>
       {:else if isDone}
-        <button class="job-btn claim" on:click={()=>claimJob(id)}>💰 Belohnung holen!</button>
+        <button class="job-btn claim" onclick={()=>claimJob(id)}>💰 Belohnung holen!</button>
       {:else}
-        <button class="job-btn" on:click={()=>startJob(id)}>🔨 Schicht starten ({fmtTime(job.duration)})</button>
+        <button class="job-btn" onclick={()=>startJob(id)}>🔨 Schicht starten ({fmtTime(job.duration)})</button>
       {/if}
     </div>
   {/each}

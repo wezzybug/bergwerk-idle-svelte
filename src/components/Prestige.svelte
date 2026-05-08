@@ -4,7 +4,7 @@
   import { server } from '../services/server.js';
   import { fmt, cost } from '../utils/format.js';
 
-  let showConfirm = false;
+  let showConfirm = $state(false);
 
   async function doPrestige() {
     const r = await server.action('prestige');
@@ -26,7 +26,7 @@
     }
   }
 
-  $: gemEarned = Math.floor(Math.sqrt($totalGoldAllTime / 1e6));
+  let gemEarned = $derived(Math.floor(Math.sqrt($totalGoldAllTime / 1e6)));
 
   function gemCost(u) {
     return cost(u.base, u.mult, u.count);
@@ -40,7 +40,6 @@
     <div class="prestige-stat">💰 {fmt($totalGoldAllTime)} Gold gesamt</div>
   </div>
 
-  <!-- Gem Upgrades -->
   <div class="gem-upgrades">
     <h3>💎 Gem-Upgrades</h3>
     {#each GEM_UPGRADES as u, i}
@@ -57,15 +56,14 @@
     {/each}
   </div>
 
-  <!-- Prestige Button -->
   <div class="prestige-action">
     <p>Beim Prestige verlierst du alles, aber bekommst Gems!</p>
     <p>Voraussichtlich: +{gemEarned} Gems</p>
     {#if !showConfirm}
-      <button class="prestige-btn" on:click={()=>showConfirm=true}>✨ Prestige</button>
+      <button class="prestige-btn" onclick={()=>showConfirm=true}>✨ Prestige</button>
     {:else}
-      <button class="prestige-btn confirm" on:click={doPrestige}>⚡ WIRKLICH Prestigen?</button>
-      <button class="prestige-btn cancel" on:click={()=>showConfirm=false}>Abbrechen</button>
+      <button class="prestige-btn confirm" onclick={doPrestige}>⚡ WIRKLICH Prestigen?</button>
+      <button class="prestige-btn cancel" onclick={()=>showConfirm=false}>Abbrechen</button>
     {/if}
   </div>
 </div>

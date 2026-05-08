@@ -2,10 +2,9 @@
   import { gold, totalGold, totalGoldAllTime, marketEvent, marketEventEnd } from '../stores/game.js';
   import { STOCKS, STOCK_FEE } from '../data/gameData.js';
   import { server } from '../services/server.js';
-  import { fmt } from '../utils/format.js';
+  import { fmt, fmtTime } from '../utils/format.js';
 
-  // Stock state (local)
-  let stockState = STOCKS.map(s => ({
+  let stockState = $state(STOCKS.map(s => ({
     ...s,
     price: s.basePrice,
     prevPrice: s.basePrice,
@@ -13,50 +12,51 @@
     shares: 0,
     avgBuy: 0,
     trend: 0
-  }));
+  })));
 
-  // Update prices locally (for chart animation) — server prices come from sync
-  setInterval(() => {
-    let eventBias = 0;
-    if ($marketEvent) {
-      if ($marketEvent === 'bull') eventBias = 0.03;
-      if ($marketEvent === 'bear') eventBias = -0.03;
-      if ($marketEvent === 'crash') eventBias = -0.08;
-      if ($marketEvent === 'boom') eventBias = 0.06;
-      if (Date.now() > $marketEventEnd) { $marketEvent = null; }
-    }
-
-    stockState.forEach(s => {
-      s.prevPrice = s.price;
-      if (Math.random() < 0.1) s.trend = (Math.random() - 0.5) * s.volatility * 0.3;
-      let change = (Math.random() - 0.48) * s.volatility * 0.5 + s.trend;
-      let reversion = (s.basePrice - s.price) / s.basePrice * 0.015;
-      s.price = Math.max(s.basePrice * 0.05, s.price * (1 + change + reversion + eventBias));
-      s.history.push(s.price);
-      if (s.history.length > 20) s.history.shift();
-    });
-
-    // Random market events
-    if (!$marketEvent && Math.random() < 0.033) {
-      const events = ['bull', 'bear', 'crash', 'boom'];
-      $marketEvent = events[Math.floor(Math.random() * events.length)];
-      $marketEventEnd = Date.now() + 30000 + Math.random() * 30000;
-    }
-
-    stockState = stockState; // trigger reactivity
-  }, 3000);
-
-  // Dividends
-  setInterval(() => {
-    stockState.forEach(s => {
-      if (s.shares > 0) {
-        const div = Math.floor(s.shares * s.price * s.dividend);
-        if (div > 0) { $gold += div; $totalGold += div; $totalGoldAllTime += div; }
+  import { onMount } from 'svelte';
+  onMount(() => {
+    const timer = setInterval(() => {
+      let eventBias = 0;
+      if ($marketEvent) {
+        if ($marketEvent === 'bull') eventBias = 0.03;
+        if ($marketEvent === 'bear') eventBias = -0.03;
+        if ($marketEvent === 'crash') eventBias = -0.08;
+        if ($marketEvent === 'boom') eventBias = 0.06;
+        if (Date.now() > $marketEventEnd) { $marketEvent = null; }
       }
-    });
-  }, 10000);
 
-  // Load server stock prices from sync data
+      stockState.forEach(s => {
+        s.prevPrice = s.price;
+        if (Math.random() < 0.1) s.trend = (Math.random() - 0.5) * s.volatility * 0.3;
+        let change = (Math.random() - 0.48) * s.volatility * 0.5 + s.trend;
+        let reversion = (s.basePrice - s.price) / s.basePrice * 0.015;
+        s.price = Math.max(s.basePrice * 0.05, s.price * (1 + change + reversion + eventBias));
+        s.history.push(s.price);
+        if (s.history.length > 20) s.history.shift();
+      });
+
+      if (!$marketEvent && Math.random() < 0.033) {
+        const events = ['bull', 'bear', 'crash', 'boom'];
+        $marketEvent = events[Math.floor(Math.random() * events.length)];
+        $marketEventEnd = Date.now() + 30000 + Math.random() * 30000;
+      }
+
+      stockState = [...stockState]; // trigger reactivity
+    }, 3000);
+
+    const divTimer = setInterval(() => {
+      stockState.forEach(s => {
+        if (s.shares > 0) {
+          const div = Math.floor(s.shares * s.price * s.dividend);
+          if (div > 0) { $gold += div; $totalGold += div; $totalGoldAllTime += div; }
+        }
+      });
+    }, 10000);
+
+    return () => { clearInterval(timer); clearInterval(divTimer); };
+  });
+
   export function loadServerPrices(prices) {
     if (!prices) return;
     prices.forEach(sp => {
@@ -66,7 +66,7 @@
         stockState[sp.stock_index].trend = sp.trend || 0;
       }
     });
-    stockState = stockState;
+    stockState = [...stockState];
   }
 
   export function loadServerHoldings(holdings) {
@@ -77,7 +77,7 @@
         stockState[h.stock_index].avgBuy = h.avg_buy_price || 0;
       }
     });
-    stockState = stockState;
+    stockState = [...stockState];
   }
 
   async function buyStock(i, qty) {
@@ -86,7 +86,7 @@
       $gold = r.gold;
       if (r.shares !== undefined) stockState[i].shares = r.shares;
       if (r.avg_buy_price !== undefined) stockState[i].avgBuy = r.avg_buy_price;
-      stockState = stockState;
+      stockState = [...stockState];
     }
   }
 
@@ -97,19 +97,16 @@
       $gold = r.gold;
       if (r.shares !== undefined) stockState[i].shares = r.shares;
       if (r.avg_buy_price !== undefined) stockState[i].avgBuy = r.avg_buy_price;
-      stockState = stockState;
+      stockState = [...stockState];
     }
   }
 
   function sellAllStock(i) {
     if (stockState[i].shares > 0) sellStock(i, stockState[i].shares);
   }
-
-  $: totalShares = stockState.reduce((a, s) => a + s.shares, 0);
 </script>
 
 <div class="stocks-panel">
-  <!-- Market Event Banner -->
   {#if $marketEvent}
     {@const left = Math.max(0, ($marketEventEnd - Date.now()) / 1000)}
     {@const names = { bull:'🐂 Bullenmarkt (+Preise)', bear:'🐻 Bärenmarkt (-Preise)', crash:'💥 Crash!', boom:'🚀 Boom!' }}
@@ -125,7 +122,6 @@
     {@const profitClass = profit >= 0 ? 'up' : 'down'}
     {@const buy1 = Math.floor($gold / (s.price * (1 + STOCK_FEE))) || 0}
     {@const feeAmt = Math.floor(s.price * STOCK_FEE)}
-    {@const divAmt = s.shares > 0 ? Math.floor(s.shares * s.price * s.dividend) : 0}
 
     <div class="stock">
       <div class="stock-top">
@@ -133,7 +129,6 @@
         <span class="stock-price {dir}">{fmt(s.price)} 🪙 ({sign}{changePct}%)</span>
       </div>
 
-      <!-- Mini Chart -->
       <div class="stock-chart">
         {#each s.history as h, idx}
           {@const h2 = (h / Math.max(...s.history) * 100).toFixed(0)}
@@ -148,31 +143,24 @@
         {#if s.shares > 0}
           | Ø {fmt(s.avgBuy)} | P/L <span class="{profitClass}">{profit >= 0 ? '+' : ''}{profit}%</span>
         {/if}
-        {#if divAmt > 0}
-          | 💰 {fmt(divAmt)}/10s
-        {/if}
       </div>
 
       <div class="stock-fee">💸 5% Gebühr (Kauf: +{fmt(feeAmt)}, Verkauf: -{fmt(feeAmt)})</div>
 
       <div class="stock-btns">
-        <button class="stock-btn stock-buy" disabled={$gold < s.price * (1 + STOCK_FEE)} on:click={()=>buyStock(i,1)}>
+        <button class="stock-btn stock-buy" disabled={$gold < s.price * (1 + STOCK_FEE)} onclick={()=>buyStock(i,1)}>
           Kauf 1 ({fmt(Math.ceil(s.price * (1 + STOCK_FEE)))})
         </button>
-        <button class="stock-btn stock-buy" disabled={buy1 < 1} on:click={()=>buyStock(i, buy1)}>
+        <button class="stock-btn stock-buy" disabled={buy1 < 1} onclick={()=>buyStock(i, buy1)}>
           Kauf {buy1}
         </button>
-        <button class="stock-btn stock-sell" disabled={s.shares < 1} on:click={()=>sellStock(i,1)}>
+        <button class="stock-btn stock-sell" disabled={s.shares < 1} onclick={()=>sellStock(i,1)}>
           Verkauf 1
         </button>
-        <button class="stock-btn stock-sell" disabled={s.shares < 1} on:click={()=>sellAllStock(i)}>
+        <button class="stock-btn stock-sell" disabled={s.shares < 1} onclick={()=>sellAllStock(i)}>
           Alles
         </button>
       </div>
     </div>
   {/each}
 </div>
-
-<script context="module">
-  import { fmtTime } from '../utils/format.js';
-</script>
