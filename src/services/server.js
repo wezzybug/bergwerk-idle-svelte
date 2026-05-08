@@ -1,118 +1,76 @@
-// Bergwerk Idle — Server Service (Supabase Edge Functions)
+// Bergwerk Idle — Server Service (CLOUD-ONLY)
+// All game logic on server. Client only displays and sends actions.
 import { writable } from 'svelte/store';
 
 const APIKEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhtaXF0ZXJlZ3F5dWZ5aW9kc21qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDYyOTY4MjAsImV4cCI6MjA2MTg3MjgyMH0.KFn0VjLQOZ3b0J8pXfC7s5n4Yr2vH6m9qR3wL5kJXcI';
-const BASE_URL = 'https://xmiqereagqyufyiodsmj.supabase.co/functions/v1';
+const BASE = 'https://xmiqereagqyufyiodsmj.supabase.co/functions/v1';
 
 export const serverOnline = writable(true);
 export const lastSync = writable(0);
 
-class ServerService {
-  constructor() {
-    this.deviceId = null;
-    this.pending = false;
-    this.syncTimer = null;
-  }
+class Server {
+  constructor() { this.deviceId = null; }
 
-  init(deviceId) {
-    this.deviceId = deviceId;
-    this.syncTimer = setInterval(() => this.sync(), 30000);
-    setTimeout(() => this.sync(), 2000);
-    console.log('[Server] Init, deviceId:', deviceId);
+  init(id) {
+    this.deviceId = id;
+    console.log('[Server] init', id);
   }
 
   async action(action, data = {}) {
     try {
-      const res = await fetch(`${BASE_URL}/action`, {
+      const res = await fetch(`${BASE}/action`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-device-id': this.deviceId,
-          'apikey': APIKEY
-        },
+        headers: { 'Content-Type': 'application/json', 'x-device-id': this.deviceId, 'apikey': APIKEY },
         body: JSON.stringify({ action, data })
       });
-      if (res.ok) {
-        const r = await res.json();
-        serverOnline.set(true);
-        return r;
-      }
-      console.warn('[Server] Action failed:', action, res.status);
+      if (res.ok) { serverOnline.set(true); return await res.json(); }
+      console.warn('[Server] action fail:', action, res.status);
       return null;
-    } catch (e) {
-      console.warn('[Server] Action error:', e);
-      serverOnline.set(false);
-      return null;
-    }
+    } catch (e) { console.warn('[Server] error:', e); serverOnline.set(false); return null; }
   }
 
   async sync() {
-    if (!this.deviceId || this.pending) return null;
-    this.pending = true;
+    if (!this.deviceId) return null;
     try {
-      const res = await fetch(`${BASE_URL}/sync?device_id=${encodeURIComponent(this.deviceId)}`, {
+      const res = await fetch(`${BASE}/sync?device_id=${encodeURIComponent(this.deviceId)}`, {
         headers: { 'apikey': APIKEY }
       });
-      if (!res.ok) { this.pending = false; return null; }
+      if (!res.ok) return null;
       const data = await res.json();
       lastSync.set(Date.now());
       serverOnline.set(true);
-      this.pending = false;
       return data;
-    } catch (e) {
-      console.warn('[Server] Sync error:', e);
-      serverOnline.set(false);
-      this.pending = false;
-      return null;
-    }
+    } catch (e) { console.warn('[Server] sync error:', e); serverOnline.set(false); return null; }
   }
 
-  async push(payload) {
+  async push(state) {
     if (!this.deviceId) return;
     try {
-      const res = await fetch(`${BASE_URL}/sync`, {
+      await fetch(`${BASE}/sync`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-device-id': this.deviceId,
-          'apikey': APIKEY
-        },
-        body: JSON.stringify(payload)
+        headers: { 'Content-Type': 'application/json', 'x-device-id': this.deviceId, 'apikey': APIKEY },
+        body: JSON.stringify(state)
       });
-      return res.ok;
-    } catch (e) {
-      console.warn('[Server] Push error:', e);
-      return false;
-    }
+    } catch (e) { console.warn('[Server] push error:', e); }
   }
 
   async leaderboard(type = 'gold', limit = 10) {
     try {
-      const res = await fetch(`${BASE_URL}/leaderboard?type=${type}&limit=${limit}`, {
-        headers: { 'apikey': APIKEY }
-      });
+      const res = await fetch(`${BASE}/leaderboard?type=${type}&limit=${limit}`, { headers: { 'apikey': APIKEY } });
       return res.ok ? await res.json() : null;
     } catch (e) { return null; }
   }
 
-  async watchAd(adType) {
+  async watchAd(type) {
     try {
-      const res = await fetch(`${BASE_URL}/watch-ad`, {
+      const res = await fetch(`${BASE}/watch-ad`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-device-id': this.deviceId,
-          'apikey': APIKEY
-        },
-        body: JSON.stringify({ ad_type: adType })
+        headers: { 'Content-Type': 'application/json', 'x-device-id': this.deviceId, 'apikey': APIKEY },
+        body: JSON.stringify({ ad_type: type })
       });
       return res.ok ? await res.json() : null;
     } catch (e) { return null; }
-  }
-
-  destroy() {
-    if (this.syncTimer) clearInterval(this.syncTimer);
   }
 }
 
-export const server = new ServerService();
+export const server = new Server();

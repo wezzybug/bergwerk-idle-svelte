@@ -11,14 +11,10 @@
     if (r && r.success) {
       $gems = r.new_gems;
       $prestigeMultiplier = r.new_prestige_multiplier;
-      $gold = 0;
-      $totalGold = 0;
-      $totalGoldAllTime = 0;
-      $gps = 0;
-      $clickPower = 1;
-      $clickMultiplier = 1;
-      $totalClicks = 0;
-      $totalUpgradesBought = 0;
+      // Full reset from server
+      $gold = 0; $totalGold = 0; $totalGoldAllTime = 0;
+      $gps = 0; $clickPower = 1; $clickMultiplier = 1;
+      $totalClicks = 0; $totalUpgradesBought = 0;
       CLICK_UPGRADES.forEach(u => u.count = 0);
       AUTO_UPGRADES.forEach(u => u.count = 0);
       JOBS.forEach(j => j.count = 0);
@@ -27,43 +23,17 @@
   }
 
   let gemEarned = $derived(Math.floor(Math.sqrt($totalGoldAllTime / 1e6)));
-
-  function gemCost(u) {
-    return cost(u.base, u.mult, u.count);
-  }
 </script>
 
-<div class="prestige-panel">
-  <div class="prestige-info">
-    <div class="prestige-stat">✨ {fmt($gems)} Gems</div>
-    <div class="prestige-stat">💫 x{$prestigeMultiplier.toFixed(1)} Prestige</div>
-    <div class="prestige-stat">💰 {fmt($totalGoldAllTime)} Gold gesamt</div>
-  </div>
-
-  <div class="gem-upgrades">
-    <h3>💎 Gem-Upgrades</h3>
-    {#each GEM_UPGRADES as u, i}
-      {@const c = gemCost(u)}
-      <div class="upgrade" class:disabled={$gems < c || (u.max && u.count >= u.max)}>
-        <div class="upgrade-info">
-          <div class="upgrade-name">{u.name} <span class="count">x{u.count}</span></div>
-          <div class="upgrade-desc">{u.desc}</div>
-        </div>
-        <button class="upgrade-btn gem-btn" disabled={$gems < c || (u.max && u.count >= u.max)}>
-          💎 {c}
-        </button>
-      </div>
-    {/each}
-  </div>
-
-  <div class="prestige-action">
-    <p>Beim Prestige verlierst du alles, aber bekommst Gems!</p>
-    <p>Voraussichtlich: +{gemEarned} Gems</p>
-    {#if !showConfirm}
-      <button class="prestige-btn" onclick={()=>showConfirm=true}>✨ Prestige</button>
-    {:else}
-      <button class="prestige-btn confirm" onclick={doPrestige}>⚡ WIRKLICH Prestigen?</button>
-      <button class="prestige-btn cancel" onclick={()=>showConfirm=false}>Abbrechen</button>
-    {/if}
-  </div>
+<div class="prestige-box">
+  <h3>✨ Prestige</h3>
+  <p>Gems: {fmt($gems)} · Multiplikator: x{$prestigeMultiplier.toFixed(1)}</p>
+  <p>Gesamt-Gold: {fmt($totalGoldAllTime)}</p>
+  <p>Voraussichtlich: +{gemEarned} Gems</p>
+  {#if !showConfirm}
+    <button class="prestige-btn" onclick={()=>showConfirm=true}>✨ Prestige</button>
+  {:else}
+    <button class="prestige-btn confirm" onclick={doPrestige}>⚡ WIRKLICH?</button>
+    <button class="prestige-btn cancel" onclick={()=>showConfirm=false}>Abbrechen</button>
+  {/if}
 </div>

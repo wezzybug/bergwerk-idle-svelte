@@ -6,6 +6,7 @@
 
   let tab = $state('click');
 
+  // Recalculate GPS from upgrade counts (local mirror of server state)
   function recalcGPS() {
     let total = 0;
     AUTO_UPGRADES.forEach(u => total += u.gps * u.count);
@@ -33,55 +34,44 @@
   }
 </script>
 
-<div class="upgrades-panel">
-  <div class="tab-bar">
-    <button class="tab-btn" class:active={tab==='click'} onclick={()=>tab='click'}>⛏️ Klick</button>
-    <button class="tab-btn" class:active={tab==='auto'} onclick={()=>tab='auto'}>🤖 Auto</button>
-    <button class="tab-btn" class:active={tab==='gem'} onclick={()=>tab='gem'}>💎 Gems</button>
-  </div>
-
-  {#if tab === 'click'}
-    {#each CLICK_UPGRADES as u, i}
-      {@const c = cost(u.base, u.mult, u.count)}
-      <div class="upgrade" class:disabled={$gold < c}>
-        <div class="upgrade-info">
-          <div class="upgrade-name">{u.name} <span class="count">x{u.count}</span></div>
-          <div class="upgrade-desc">{u.desc}</div>
-        </div>
-        <button class="upgrade-btn" disabled={$gold < c} onclick={()=>buyClick(i)}>
-          {fmt(c)} 🪙
-        </button>
-      </div>
-    {/each}
-  {/if}
-
-  {#if tab === 'auto'}
-    {#each AUTO_UPGRADES as u, i}
-      {@const c = cost(u.base, u.mult, u.count)}
-      <div class="upgrade" class:disabled={$gold < c}>
-        <div class="upgrade-info">
-          <div class="upgrade-name">{u.name} <span class="count">x{u.count}</span></div>
-          <div class="upgrade-desc">{u.desc}</div>
-        </div>
-        <button class="upgrade-btn" disabled={$gold < c} onclick={()=>buyAuto(i)}>
-          {fmt(c)} 🪙
-        </button>
-      </div>
-    {/each}
-  {/if}
-
-  {#if tab === 'gem'}
-    {#each GEM_UPGRADES as u, i}
-      {@const c = cost(u.base, u.mult, u.count)}
-      <div class="upgrade" class:disabled={true}>
-        <div class="upgrade-info">
-          <div class="upgrade-name">{u.name} <span class="count">x{u.count}</span></div>
-          <div class="upgrade-desc">{u.desc}</div>
-        </div>
-        <button class="upgrade-btn" disabled={true}>
-          💎 {c}
-        </button>
-      </div>
-    {/each}
-  {/if}
+<h2>Upgrades</h2>
+<div class="tab-bar">
+  <button class="tab-btn" class:active={tab==='click'} onclick={()=>tab='click'}>⛏️ Klick</button>
+  <button class="tab-btn" class:active={tab==='auto'} onclick={()=>tab='auto'}>🤖 Auto</button>
+  <button class="tab-btn" class:active={tab==='gem'} onclick={()=>tab='gem'}>💎 Gems</button>
 </div>
+
+{#if tab === 'click'}
+  {#each CLICK_UPGRADES as u, i}
+    {@const c = cost(u.base, u.mult, u.count)}
+    <div class="upgrade" class:disabled={$gold < c}>
+      <div class="upgrade-info">
+        <div class="upgrade-name">{u.name} <span class="count">x{u.count}</span></div>
+        <div class="upgrade-desc">{u.desc}</div>
+      </div>
+      <button class="upgrade-btn" disabled={$gold < c} onclick={()=>buyClick(i)}>{fmt(c)} 🪙</button>
+    </div>
+  {/each}
+{:else if tab === 'auto'}
+  {#each AUTO_UPGRADES as u, i}
+    {@const c = cost(u.base, u.mult, u.count)}
+    <div class="upgrade" class:disabled={$gold < c}>
+      <div class="upgrade-info">
+        <div class="upgrade-name">{u.name} <span class="count">x{u.count}</span></div>
+        <div class="upgrade-desc">{u.desc}</div>
+      </div>
+      <button class="upgrade-btn" disabled={$gold < c} onclick={()=>buyAuto(i)}>{fmt(c)} 🪙</button>
+    </div>
+  {/each}
+{:else if tab === 'gem'}
+  {#each GEM_UPGRADES as u, i}
+    {@const c = cost(u.base, u.mult, u.count)}
+    <div class="upgrade" class:disabled={true}>
+      <div class="upgrade-info">
+        <div class="upgrade-name">{u.name} <span class="count">x{u.count}</span></div>
+        <div class="upgrade-desc">{u.desc}</div>
+      </div>
+      <button class="upgrade-btn" disabled={true}>💎 {c}</button>
+    </div>
+  {/each}
+{/if}

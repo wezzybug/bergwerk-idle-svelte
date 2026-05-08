@@ -1,4 +1,4 @@
-// Bergwerk Idle — Upgrade Data
+// Bergwerk Idle — Game Data Constants (NO LOGIC, just definitions)
 export const CLICK_UPGRADES = [
   { id:'pick', name:'⚒️ Spitzhacke+', desc:'+1 Klick', base:15, mult:1.55, power:1, count:0 },
   { id:'gloves', name:'🧤 Handschuhe', desc:'+3 Klick', base:120, mult:1.55, power:3, count:0 },
@@ -18,13 +18,6 @@ export const AUTO_UPGRADES = [
   { id:'reactor', name:'⚛️ Reaktor', desc:'+7K Gold/s', base:4e6, mult:1.45, gps:7000, count:0 },
   { id:'factory', name:'🏭 Fabrik', desc:'+30K Gold/s', base:3.5e7, mult:1.45, gps:30000, count:0 },
   { id:'titanium', name:'💠 Titan-Mine', desc:'+150K Gold/s', base:3e8, mult:1.45, gps:150000, count:0 },
-];
-
-export const GEM_UPGRADES = [
-  { id:'gemClick', name:'💎 Klick-Multi', desc:'+50% Klick', base:1, mult:2, max:10, count:0 },
-  { id:'gemGps', name:'💎 GPS-Multi', desc:'+50% GPS', base:1, mult:2, max:10, count:0 },
-  { id:'gemOffline', name:'💎 Offline-Eff', desc:'+20% Offline', base:2, mult:2, max:5, count:0 },
-  { id:'gemLuck', name:'💎 Glück', desc:'+Events', base:3, mult:2, max:5, count:0 },
 ];
 
 export const JOBS = [
@@ -48,6 +41,13 @@ export const STOCKS = [
 ];
 
 export const STOCK_FEE = 0.05;
+
+export const GEM_UPGRADES = [
+  { id:'gemClick', name:'💎 Klick-Multi', desc:'+50% Klick', base:1, mult:2, max:10, count:0 },
+  { id:'gemGps', name:'💎 GPS-Multi', desc:'+50% GPS', base:1, mult:2, max:10, count:0 },
+  { id:'gemOffline', name:'💎 Offline-Eff', desc:'+20% Offline', base:2, mult:2, max:5, count:0 },
+  { id:'gemLuck', name:'💎 Glück', desc:'+Events', base:3, mult:2, max:5, count:0 },
+];
 
 export const ACHIEVEMENTS = [
   { id:'click10', name:'Erste Schritte', icon:'👆', tip:'10 Klicks', check:s=>s.totalClicks>=10 },
