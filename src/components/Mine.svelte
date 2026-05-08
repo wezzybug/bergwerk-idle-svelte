@@ -28,10 +28,11 @@
   async function doMine() {
     const r = await server.action('mine');
     if (r && r.success) {
+      // Server is authoritative — use its values directly
       $gold = r.gold;
-      $totalGold += r.reward;
-      $totalGoldAllTime += r.reward;
-      $totalClicks = r.total_clicks || $totalClicks + 1;
+      $totalGold = r.total_gold ?? $totalGold;
+      $totalGoldAllTime = r.total_gold_all_time ?? $totalGoldAllTime;
+      $totalClicks = r.total_clicks ?? ($totalClicks + 1);
       floatText = '+' + fmt(r.reward);
       floatVisible = true;
       shake = true;

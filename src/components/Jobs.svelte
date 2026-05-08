@@ -18,13 +18,51 @@
   }
   function jobTimeLeft(id) {
     if (!activeJobs[id]) return 0;
-    return Math.max(0, (activeJobs[id].start + activeJobs[id].duration * 1000 - Date.now()) / 1000);
+    return Math.max(0, (activeJobs[id].end - Date.now()) / 1000);
   }
+
+  // Sync active jobs from server
+  export function syncJobs(serverJobs) {
+    if (!serverJobs) return;
+    serverJobs.forEach(j => {
+      const job = JOBS[j.job_index];
+      if (!job) return;
+      const id = job.id;
+      if (j.active) {
+        const endTime = (j.start_time || Date.now() / 1000) * 1000 + job.duration * 1000;
+        activeJobs[id] = { start: (j.start_time || Date.now() / 1000) * 1000, end: endTime, duration: job.duration, done: endTime <= Date.now() };
+      } else {
+        if (j.cooldown_end) {
+          jobCooldowns[id] = j.cooldown_end * 1000;
+        }
+        delete activeJobs[id];
+      }
+    });
+    activeJobs = { ...activeJobs };
+    jobCooldowns = { ...jobCooldowns };
+  }
+
+  // Timer to mark jobs as done when timer expires
+  import { onMount } from 'svelte';
+  onMount(() => {
+    const timer = setInterval(() => {
+      let changed = false;
+      for (const id in activeJobs) {
+        if (!activeJobs[id].done && activeJobs[id].end <= Date.now()) {
+          activeJobs[id] = { ...activeJobs[id], done: true };
+          changed = true;
+        }
+      }
+      if (changed) activeJobs = { ...activeJobs };
+    }, 1000);
+    return () => clearInterval(timer);
+  });
 
   async function startJob(id) {
     const r = await server.action('start_job', { job_id: id });
     if (r && r.success) {
-      activeJobs[id] = { start: Date.now(), duration: r.duration, done: false };
+      activeJobs[id] = { start: Date.now(), end: Date.now() + r.duration * 1000, duration: r.duration, done: false };
+      activeJobs = { ...activeJobs };
     }
   }
 
@@ -32,12 +70,14 @@
     const r = await server.action('claim_job', { job_id: id });
     if (r && r.success) {
       $gold = r.gold;
-      $totalGold += r.reward;
-      $totalGoldAllTime += r.reward;
+      $totalGold = r.total_gold ?? $totalGold;
+      $totalGoldAllTime = r.total_gold_all_time ?? $totalGoldAllTime;
       const job = JOBS.find(j => j.id === id);
       if (job) job.count++;
-      jobCooldowns[id] = Date.now() + (job.cooldown || 0) * 1000;
+      if (r.cooldown_end) jobCooldowns[id] = r.cooldown_end * 1000;
       delete activeJobs[id];
+      activeJobs = { ...activeJobs };
+      jobCooldowns = { ...jobCooldowns };
     }
   }
 </script>

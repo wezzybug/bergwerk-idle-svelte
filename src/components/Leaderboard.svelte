@@ -42,7 +42,7 @@
   {#each leaderboard as p, i}
     {@const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : ''}
     <div class="upgrade" style={i === 0 ? 'background:linear-gradient(90deg,#1a1a2e,#2a1f0e)' : i < 3 ? 'background:#16213e' : ''}>
-      <div class="upgrade-info"><div class="upgrade-name">{medal} #{p.rank} {p.user_id?.substring(0,8)}...</div></div>
+      <div class="upgrade-info"><div class="upgrade-name">{medal} #{p.rank || i+1} {p.display_name || p.user_id?.substring(0,8) || '???'}</div></div>
       <div class="upgrade-btn" style="cursor:default;border-color:#ffd700;color:#ffd700;background:#0f3460">{fmtVal[type](p[valKey[type]])}</div>
     </div>
   {/each}

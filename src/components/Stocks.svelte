@@ -59,6 +59,9 @@
       if (r.shares !== undefined) stockState[i].shares = r.shares;
       if (r.avg_buy_price !== undefined) stockState[i].avgBuy = r.avg_buy_price;
       stockState = [...stockState];
+      // Also sync total gold values
+      $totalGold = r.total_gold ?? $totalGold;
+      $totalGoldAllTime = r.total_gold_all_time ?? $totalGoldAllTime;
     }
   }
 

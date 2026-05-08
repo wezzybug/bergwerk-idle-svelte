@@ -11,12 +11,13 @@
     if (r && r.success) {
       $gems = r.new_gems;
       $prestigeMultiplier = r.new_prestige_multiplier;
-      // Full reset from server
-      $gold = 0; $totalGold = 0; $totalGoldAllTime = 0;
+      // Full reset — next sync will fill in all values from server
+      $gold = 0; $totalGold = 0; $totalGoldAllTime = r.total_gold_all_time ?? 0;
       $gps = 0; $clickPower = 1; $clickMultiplier = 1;
       $totalClicks = 0; $totalUpgradesBought = 0;
       CLICK_UPGRADES.forEach(u => u.count = 0);
       AUTO_UPGRADES.forEach(u => u.count = 0);
+      GEM_UPGRADES.forEach(u => u.count = 0);
       JOBS.forEach(j => j.count = 0);
       showConfirm = false;
     }

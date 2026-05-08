@@ -1,6 +1,6 @@
 <script>
   import { onMount } from 'svelte';
-  import { gold, totalGold, totalGoldAllTime, gps, prestigeMultiplier, clickPower, clickMultiplier, clickValue, gpsValue, totalClicks, totalUpgradesBought, gems, easter1M, easter1B, activeBoost, boostEnd, marketEvent, marketEventEnd, achievementsUnlocked } from './stores/game.js';
+  import { gold, totalGold, totalGoldAllTime, gps, prestigeMultiplier, clickPower, clickMultiplier, clickValue, gpsValue, totalClicks, totalUpgradesBought, gems, easter1M, easter1B, activeBoost, boostEnd, activeAdBoost, marketEvent, marketEventEnd, stats, achievementsUnlocked } from './stores/game.js';
   import { CLICK_UPGRADES, AUTO_UPGRADES, GEM_UPGRADES, JOBS, STOCKS, ACHIEVEMENTS } from './data/gameData.js';
   import { server, serverOnline } from './services/server.js';
   import { generateDeviceId, fmt } from './utils/format.js';
@@ -23,9 +23,15 @@
   ];
 
   let stocksRef = $state(null);
+  let jobsRef = $state(null);
 
   // ====== SERVER SYNC — SOLE SOURCE OF TRUTH ======
   onMount(() => {
+    // Register service worker for PWA
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    }
+
     const deviceId = generateDeviceId();
     server.init(deviceId);
 
@@ -46,7 +52,7 @@
       lastTick = Date.now();
     }, 1000);
 
-    return () => { clearInterval(syncInterval); clearInterval(goldTick); server.destroy(); };
+    return () => { clearInterval(syncInterval); clearInterval(goldTick); };
   });
 
   async function doSync() {
@@ -68,6 +74,17 @@
     if (s.easter_1m) $easter1M = true;
     if (s.easter_1b) $easter1B = true;
 
+    // Boosts & Events
+    if (s.active_boost) { $activeBoost = s.active_boost; $boostEnd = s.boost_end || 0; }
+    else { $activeBoost = null; $boostEnd = 0; }
+    if (s.active_ad_boost) { $activeAdBoost = s.active_ad_boost; }
+    else { $activeAdBoost = null; }
+    if (s.market_event) { $marketEvent = s.market_event; $marketEventEnd = s.market_event_end || 0; }
+    else { $marketEvent = null; $marketEventEnd = 0; }
+
+    // Stats
+    if (s.stats) $stats = s.stats;
+
     // Upgrades — overwrite local with server counts
     if (data.upgrades) {
       // Reset counts first
@@ -85,6 +102,11 @@
     if (data.jobs) {
       JOBS.forEach(j => j.count = 0);
       data.jobs.forEach(j => { if (JOBS[j.job_index]) JOBS[j.job_index].count = j.count; });
+    }
+
+    // Active job state sync
+    if (jobsRef && data.jobs) {
+      jobsRef.syncJobs(data.jobs);
     }
 
     // Stocks
@@ -108,6 +130,7 @@
     <div class="header-stats">
       <span>🪙 {fmt($gold)}</span>
       <span>⚡ {fmt($gpsValue)}/s</span>
+      {#if $gems > 0}<span>💎 {fmt($gems)}</span>{/if}
       {#if !$serverOnline}<span class="offline">📵</span>{/if}
     </div>
   </header>
@@ -116,16 +139,16 @@
     {#if tab === 'mine'}
       <Mine />
     {:else if tab === 'jobs'}
-      <Jobs />
+      <Jobs bind:this={jobsRef} />
     {:else if tab === 'stocks'}
       <Stocks bind:this={stocksRef} />
     {:else if tab === 'shop'}
       <Upgrades />
     {:else if tab === 'ach'}
-      <div class="ach-grid">
+      <div class="achievements-panel">
         {#each ACHIEVEMENTS as a}
           {@const unlocked = $achievementsUnlocked.has(a.id)}
-          <div class="ach" class:done={unlocked}>
+          <div class="achievement" class:done={unlocked}>
             <div class="ach-icon">{unlocked ? a.icon : '🔒'}</div>
             <div class="ach-name">{unlocked ? a.name : '???'}</div>
             <div class="ach-tip">{a.tip}</div>

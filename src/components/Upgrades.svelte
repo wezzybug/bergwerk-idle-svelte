@@ -1,5 +1,5 @@
 <script>
-  import { gold, gps, clickPower, totalUpgradesBought } from '../stores/game.js';
+  import { gold, gems, gps, clickPower, totalUpgradesBought } from '../stores/game.js';
   import { CLICK_UPGRADES, AUTO_UPGRADES, GEM_UPGRADES } from '../data/gameData.js';
   import { server } from '../services/server.js';
   import { fmt, cost } from '../utils/format.js';
@@ -30,6 +30,17 @@
       AUTO_UPGRADES[i].count = r.upgrade_count;
       $totalUpgradesBought++;
       recalcGPS();
+    }
+  }
+
+  async function buyGem(i) {
+    const u = GEM_UPGRADES[i];
+    if (u.count >= u.max) return;
+    const r = await server.action('buy_gem_upgrade', { index: i });
+    if (r && r.success) {
+      $gold = r.gold ?? $gold;
+      $gems = r.gems ?? $gems;
+      GEM_UPGRADES[i].count = r.upgrade_count;
     }
   }
 </script>
@@ -66,12 +77,13 @@
 {:else if tab === 'gem'}
   {#each GEM_UPGRADES as u, i}
     {@const c = cost(u.base, u.mult, u.count)}
-    <div class="upgrade" class:disabled={true}>
+    {@const maxed = u.count >= u.max}
+    <div class="upgrade" class:disabled={maxed || $gems < c}>
       <div class="upgrade-info">
-        <div class="upgrade-name">{u.name} <span class="count">x{u.count}</span></div>
+        <div class="upgrade-name">{u.name} <span class="count">x{u.count}/{u.max}</span></div>
         <div class="upgrade-desc">{u.desc}</div>
       </div>
-      <button class="upgrade-btn" disabled={true}>💎 {c}</button>
+      <button class="upgrade-btn gem-btn" disabled={maxed || $gems < c} onclick={()=>buyGem(i)}>💎 {maxed ? 'MAX' : c}</button>
     </div>
   {/each}
 {/if}
