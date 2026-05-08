@@ -1,9 +1,6 @@
-// Bergwerk Idle — Game State (Svelte 5 Runes in .svelte.js)
-// Reactive state using Svelte 5 runes — exported as getters/setters
-
+// Bergwerk Idle — Game State (Svelte Stores — compatible with Svelte 5)
 import { writable, derived } from 'svelte/store';
 
-// Core state as writable stores (compatible with Svelte 5 $store syntax)
 export const gold = writable(0);
 export const totalGold = writable(0);
 export const totalGoldAllTime = writable(0);
@@ -15,26 +12,20 @@ export const prestigeMultiplier = writable(1);
 export const easter1M = writable(false);
 export const easter1B = writable(false);
 
-// Boosts
 export const activeBoost = writable(null);
 export const boostEnd = writable(0);
 
-// Events
 export const currentEvent = writable(null);
 export const eventEnd = writable(0);
 export const marketEvent = writable(null);
 export const marketEventEnd = writable(0);
 export const activeAdBoost = writable(null);
 
-// Stats
 export const totalClicks = writable(0);
 export const totalUpgradesBought = writable(0);
 export const stats = writable({ offlineEarnings: 0, adsWatched: 0, prestiges: 0 });
-
-// Achievements
 export const achievementsUnlocked = writable(new Set());
 
-// Derived
 export const clickValue = derived(
   [clickPower, clickMultiplier, prestigeMultiplier],
   ([$cp, $cm, $pm]) => $cp * $cm * $pm

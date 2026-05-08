@@ -24,12 +24,9 @@
 
   let stocksRef = $state(null);
 
-  // Gold tick (GPS income)
   onMount(() => {
-    // Load from localStorage
     loadLocal();
 
-    // GPS tick
     const goldTick = setInterval(() => {
       const earned = $gpsValue;
       if (earned > 0) {
@@ -39,13 +36,9 @@
       }
     }, 1000);
 
-    // Save every 10s
     const saveTick = setInterval(saveLocal, 10000);
-
-    // Achievement check every 5s
     const achTick = setInterval(checkAchievements, 5000);
 
-    // Server sync
     startSync();
 
     // Offline earnings

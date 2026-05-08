@@ -16,9 +16,7 @@ class ServerService {
 
   init(deviceId) {
     this.deviceId = deviceId;
-    // Sync alle 30s
     this.syncTimer = setInterval(() => this.sync(), 30000);
-    // Erster Sync nach 2s
     setTimeout(() => this.sync(), 2000);
     console.log('[Server] Init, deviceId:', deviceId);
   }
@@ -49,23 +47,24 @@ class ServerService {
   }
 
   async sync() {
-    if (!this.deviceId || this.pending) return;
+    if (!this.deviceId || this.pending) return null;
     this.pending = true;
     try {
-      // GET — Server-Daten laden
       const res = await fetch(`${BASE_URL}/sync?device_id=${encodeURIComponent(this.deviceId)}`, {
         headers: { 'apikey': APIKEY }
       });
-      if (!res.ok) { this.pending = false; return; }
+      if (!res.ok) { this.pending = false; return null; }
       const data = await res.json();
       lastSync.set(Date.now());
       serverOnline.set(true);
+      this.pending = false;
       return data;
     } catch (e) {
       console.warn('[Server] Sync error:', e);
       serverOnline.set(false);
+      this.pending = false;
+      return null;
     }
-    this.pending = false;
   }
 
   async push(payload) {
