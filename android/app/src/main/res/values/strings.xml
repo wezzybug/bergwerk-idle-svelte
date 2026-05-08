@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">BergwerkIdle</string>
+    <string name="title_activity_main">BergwerkIdle</string>
+    <string name="package_name">com.wezzy.bergwerkidle</string>
+    <string name="custom_url_scheme">com.wezzy.bergwerkidle</string>
+</resources>
