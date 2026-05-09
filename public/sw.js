@@ -1,6 +1,6 @@
 // Bergwerk Idle — Service Worker for PWA
-// V2: Dynamic base-path, pre-cache build assets, proper scope handling
-const CACHE_NAME = 'bergwerk-v1';
+// V3: Cache bust on update (new CACHE_NAME per deploy), network-first for HTML
+const CACHE_NAME = 'bergwerk-v3';
 const BASE = self.location.pathname.replace(/\/sw\.js$/, '');
 const ASSETS = [
   BASE + '/',
@@ -14,9 +14,9 @@ const ASSETS = [
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => {
-      console.log('[SW] pre-caching', ASSETS);
+      console.log('[SW v3] pre-caching', ASSETS);
       return cache.addAll(ASSETS).catch(err => {
-        console.warn('[SW] pre-cache partial fail:', err);
+        console.warn('[SW v3] pre-cache partial fail:', err);
       });
     })
   );
@@ -25,32 +25,44 @@ self.addEventListener('install', event => {
 
 self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
-    )
+    caches.keys().then(keys => {
+      console.log('[SW v3] purging old caches:', keys.filter(k => k !== CACHE_NAME));
+      return Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)));
+    })
   );
   self.clients.claim();
-  console.log('[SW] activated, base:', BASE);
+  console.log('[SW v3] activated, base:', BASE);
 });
 
 self.addEventListener('fetch', event => {
-  // Skip non-GET requests
+  // Skip non-GET and Supabase API
   if (event.request.method !== 'GET') return;
-
-  // Network-only for Supabase API calls
   if (event.request.url.includes('/functions/v1/')) return;
 
+  // Network-first for HTML (always get latest index.html)
+  if (event.request.mode === 'navigate' || event.request.destination === 'document') {
+    event.respondWith(
+      fetch(event.request)
+        .then(response => {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+          return response;
+        })
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
+  // Cache-first for static assets (immutable hashed filenames)
   event.respondWith(
     caches.match(event.request).then(cached => {
       const fetchPromise = fetch(event.request).then(response => {
-        // Cache successful responses for same-origin requests
-        if (response.ok && response.type === 'basic') {
+        if (response.ok) {
           const clone = response.clone();
           caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
         }
         return response;
       }).catch(() => cached);
-
       return cached || fetchPromise;
     })
   );
