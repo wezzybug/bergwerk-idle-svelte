@@ -1,9 +1,9 @@
 // Bergwerk Idle — Server Service (CLOUD-ONLY)
 // All game logic on server. Client only displays and sends actions.
-// V2: Retry backoff, online/offline detection, fail tracking
+// V3: Retry backoff, online/offline detection, dual auth headers
 import { writable } from 'svelte/store';
 
-const APIKEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhtaXF0ZXJlZ3F5dWZ5aW9kc21qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDYyOTY4MjAsImV4cCI6MjA2MTg3MjgyMH0.KFn0VjLQOZ3b0J8pXfC7s5n4Yr2vH6m9qR3wL5kJXcI';
+const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhtaXFlcmVhZ3F5dWZ5aW9kc21qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgyMjEwMDgsImV4cCI6MjA5Mzc5NzAwOH0.yQMeQSS9h8Dk5TJRuk4n2K3vIYRs7jl0eNxK735EMrM';
 const BASE = 'https://xmiqereagqyufyiodsmj.supabase.co/functions/v1';
 
 export const serverOnline = writable(true);
@@ -11,6 +11,12 @@ export const lastSync = writable(0);
 
 // Exponential backoff: 5s → 10s → 30s → 60s
 const BACKOFF_SLOTS = [5000, 10000, 30000, 60000];
+
+// Supabase needs BOTH apikey AND Authorization: Bearer headers
+const AUTH_HEADERS = {
+  'apikey': ANON_KEY,
+  'Authorization': 'Bearer ' + ANON_KEY
+};
 
 class Server {
   constructor() {
@@ -25,7 +31,6 @@ class Server {
     };
     this._onOffline = () => {
       serverOnline.set(false);
-      // Jump to failCount=2 so immediate retries don't flood
       this.failCount = Math.max(this.failCount, 2);
       console.log('[Server] browser offline');
     };
@@ -42,7 +47,6 @@ class Server {
     }
   }
 
-  /** Call on app teardown to release listeners & timers */
   destroy() {
     if (this.backoffTimer) clearTimeout(this.backoffTimer);
     if (typeof window !== 'undefined') {
@@ -50,8 +54,6 @@ class Server {
       window.removeEventListener('offline', this._onOffline);
     }
   }
-
-  // ---- internal helpers ----
 
   _onSuccess() {
     if (this.failCount > 0) {
@@ -63,7 +65,6 @@ class Server {
 
   _onFail(label) {
     if (!navigator.onLine) {
-      // Don't increment backoff when we know we're offline
       serverOnline.set(false);
       return;
     }
@@ -79,14 +80,18 @@ class Server {
     }, delay);
   }
 
-  // ---- public API ----
+  // ---- public API — all use dual auth headers ----
 
   async action(action, data = {}) {
     if (!navigator.onLine) return null;
     try {
       const res = await fetch(`${BASE}/action`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-device-id': this.deviceId, 'apikey': APIKEY },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-device-id': this.deviceId,
+          ...AUTH_HEADERS
+        },
         body: JSON.stringify({ action, data })
       });
       if (res.ok) { this._onSuccess(); return await res.json(); }
@@ -100,7 +105,7 @@ class Server {
     if (!navigator.onLine) { serverOnline.set(false); return null; }
     try {
       const res = await fetch(`${BASE}/sync?device_id=${encodeURIComponent(this.deviceId)}`, {
-        headers: { 'apikey': APIKEY }
+        headers: AUTH_HEADERS
       });
       if (!res.ok) { this._onFail('sync'); return null; }
       const data = await res.json();
@@ -115,7 +120,11 @@ class Server {
     try {
       await fetch(`${BASE}/sync`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-device-id': this.deviceId, 'apikey': APIKEY },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-device-id': this.deviceId,
+          ...AUTH_HEADERS
+        },
         body: JSON.stringify(state)
       });
       this._onSuccess();
@@ -125,7 +134,9 @@ class Server {
   async leaderboard(type = 'gold', limit = 10) {
     if (!navigator.onLine) return null;
     try {
-      const res = await fetch(`${BASE}/leaderboard?type=${type}&limit=${limit}`, { headers: { 'apikey': APIKEY } });
+      const res = await fetch(`${BASE}/leaderboard?type=${type}&limit=${limit}`, {
+        headers: AUTH_HEADERS
+      });
       if (!res.ok) { this._onFail('leaderboard'); return null; }
       this._onSuccess();
       return await res.json();
@@ -137,7 +148,11 @@ class Server {
     try {
       const res = await fetch(`${BASE}/watch-ad`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-device-id': this.deviceId, 'apikey': APIKEY },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-device-id': this.deviceId,
+          ...AUTH_HEADERS
+        },
         body: JSON.stringify({ ad_type: type })
       });
       if (!res.ok) { this._onFail('watchAd'); return null; }
