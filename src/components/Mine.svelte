@@ -21,30 +21,61 @@
   let adBoostName = $derived($activeAdBoost?.type === 'gps' ? '📺 GPS x2' : '📺 Klick x2');
 
   import { onMount } from 'svelte';
+  let syncDebounce = $state(false);
+  let lastClickTime = $state(0);
+
   onMount(() => {
     const timer = setInterval(() => {
       if ($activeBoost && Date.now() >= $boostEnd) $activeBoost = null;
-      if ($activeAdBoost && Date.now() >= $activeAdBoost.end) $activeAdBoost = null;
+      if ($activeAdBoost && Date.now() >= $activeAdBoost.end) { $activeAdBoost = null; }
+      // Trigger debounced sync if clicks occurred
+      if (syncDebounce && Date.now() - lastClickTime > 500) {
+        syncDebounce = false;
+        debouncedSync();
+      }
     }, 1000);
     return () => clearInterval(timer);
   });
+
+  async function debouncedSync() {
+    const r = await server.sync();
+    if (r && r.success && r.state) {
+      $gold = r.state.gold;
+      $totalGold = r.state.total_gold;
+      $totalGoldAllTime = r.state.total_gold_all_time;
+      $gps = r.state.gps;
+      $clickPower = r.state.click_power;
+    }
+  }
 
   async function doMine() {
     if (clickLocked) return;
     clickLocked = true;
     setTimeout(() => clickLocked = false, 200);
 
+    // Optimistic UI update
+    const reward = Math.floor($clickPower * $clickMultiplier * $prestigeMultiplier);
+    $gold += reward;
+    $totalGold += reward;
+    $totalGoldAllTime += reward;
+    $totalClicks += 1;
+
+    floatText = '+' + fmt(reward);
+    floatVisible = true;
+    shake = true;
+    lastClickTime = Date.now();
+    syncDebounce = true;
+    setTimeout(() => shake = false, 300);
+    setTimeout(() => floatVisible = false, 900);
+
+    // Send to server
     const r = await server.action('mine');
-    if (r && r.success) {
-      $gold = r.gold;
-      $totalGold = r.total_gold ?? $totalGold;
-      $totalGoldAllTime = r.total_gold_all_time ?? $totalGoldAllTime;
-      $totalClicks = r.total_clicks ?? ($totalClicks + 1);
-      floatText = '+' + fmt(r.reward);
-      floatVisible = true;
-      shake = true;
-      setTimeout(() => shake = false, 300);
-      setTimeout(() => floatVisible = false, 900);
+    if (!r || !r.success) {
+      // Revert on error
+      $gold -= reward;
+      $totalGold -= reward;
+      $totalGoldAllTime -= reward;
+      $totalClicks -= 1;
     }
   }
 
@@ -84,6 +115,12 @@
     if (r && r.success) {
       $gold = r.gold ?? $gold;
       $gems = r.gems ?? $gems;
+      // Immediate boost update
+      if (type === 'click_boost') {
+        $activeAdBoost = { type: 'click', end: Date.now() + 5*60*1000 };
+      } else if (type === 'gps_boost') {
+        $activeAdBoost = { type: 'auto', end: Date.now() + 5*60*1000 };
+      }
     }
   }
 
