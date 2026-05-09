@@ -62,6 +62,13 @@ header h1{font-size:1.3rem;color:var(--gold);text-shadow:0 0 10px var(--gold-dim
 .ad-boost .boost-text{color:var(--blue)}
 .ad-boost .boost-fill{background:linear-gradient(90deg,var(--blue),var(--blue-hover))}
 
+/* Ad Section */
+.ad-section{display:flex;flex-wrap:wrap;gap:4px;justify-content:center;margin:8px 0;padding:4px}
+.ad-btn{background:var(--bg-accent);color:var(--blue);border:1px solid var(--blue);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:.7rem;font-weight:600;transition:all .15s}
+.ad-btn:hover{background:#1a2f4a}
+.gem-ad{border-color:var(--blue);color:#fff}
+.section-title{color:var(--gold);font-size:.9rem;margin:12px 0 4px;text-align:left;border-bottom:1px solid var(--border);padding-bottom:3px}
+
 /* Float Text */
 .float-text{position:fixed;pointer-events:none;font-weight:700;color:var(--gold);font-size:1.1rem;text-shadow:0 0 6px var(--gold-dim);animation:floatUp .9s ease-out forwards;z-index:99}
 
