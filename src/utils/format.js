@@ -18,6 +18,27 @@ export function cost(base, mult, count) {
   return Math.floor(base * Math.pow(mult, count));
 }
 
+export function calcMaxBuyable(base, mult, count, gold) {
+  let n = 0;
+  let total = 0;
+  while (n < 10000) {
+    const next = Math.floor(base * Math.pow(mult, count + n));
+    if (total + next > gold) break;
+    total += next;
+    n++;
+  }
+  return n;
+}
+
+export function calcBatchCost(base, mult, count, qty) {
+  if (qty <= 0) return 0;
+  let total = 0;
+  for (let i = 0; i < qty; i++) {
+    total += Math.floor(base * Math.pow(mult, count + i));
+  }
+  return total;
+}
+
 export function generateDeviceId() {
   let id = localStorage.getItem('bergwerk_device_id');
   if (!id) {

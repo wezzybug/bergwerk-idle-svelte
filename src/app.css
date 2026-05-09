@@ -69,6 +69,14 @@ header h1{font-size:1.3rem;color:var(--gold);text-shadow:0 0 10px var(--gold-dim
 .gem-ad{border-color:var(--blue);color:#fff}
 .section-title{color:var(--gold);font-size:.9rem;margin:12px 0 4px;text-align:left;border-bottom:1px solid var(--border);padding-bottom:3px}
 
+/* Buy Amount Selector */
+.buy-amount-bar{display:flex;gap:4px;justify-content:center;margin:8px 0}
+.amt-btn{padding:4px 10px;border-radius:6px;background:var(--bg-card);border:1px solid var(--border);color:var(--text-dim);cursor:pointer;font-size:.72rem;font-weight:600;transition:all .15s}
+.amt-btn.active{background:var(--bg-accent);border-color:var(--border-gold);color:var(--gold)}
+.amt-btn:hover:not(.active){color:var(--text)}
+.batch-info{color:var(--text-dim);font-size:.65rem;font-style:italic}
+.shop-note{color:var(--text-faint);font-size:.72rem;text-align:center;margin:4px 0 8px}
+
 /* Float Text */
 .float-text{position:fixed;pointer-events:none;font-weight:700;color:var(--gold);font-size:1.1rem;text-shadow:0 0 6px var(--gold-dim);animation:floatUp .9s ease-out forwards;z-index:99}
 

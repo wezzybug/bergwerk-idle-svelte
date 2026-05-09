@@ -63,7 +63,7 @@
     const deviceId = generateDeviceId();
     server.init(deviceId);
 
-    const syncInterval = setInterval(doSync, 5000);
+    const syncInterval = setInterval(doSync, 2000);
     doSync();
 
     let lastTick = Date.now();

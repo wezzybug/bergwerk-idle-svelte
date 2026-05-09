@@ -1,13 +1,15 @@
 <script>
   import { gold, totalGold, totalGoldAllTime, gps, clickPower, clickMultiplier, prestigeMultiplier, totalClicks, totalUpgradesBought, gems, activeBoost, boostEnd, activeAdBoost } from '../stores/game.js';
-  import { CLICK_UPGRADES } from '../data/gameData.js';
+  import { CLICK_UPGRADES, AUTO_UPGRADES } from '../data/gameData.js';
   import { server } from '../services/server.js';
-  import { fmt, fmtTime, cost } from '../utils/format.js';
+  import { fmt, fmtTime, cost, calcMaxBuyable, calcBatchCost } from '../utils/format.js';
 
   let shake = $state(false);
   let floatText = $state('');
   let floatVisible = $state(false);
   let clickLocked = $state(false);
+  let buyAmount = $state(1); // 1, 10, 100, MAX
+  const BUY_OPTIONS = [1, 10, 100, -1]; // -1 = MAX
 
   let boostName = $derived(
     $activeBoost === 'click' ? '⚡ Klick x2' :
@@ -46,13 +48,34 @@
     }
   }
 
+  function getBuyQty(upgrade) {
+    if (buyAmount === -1) return calcMaxBuyable(upgrade.base, upgrade.mult, upgrade.count, $gold);
+    return buyAmount;
+  }
+
   async function buyClick(i) {
-    const r = await server.action('buy_click_upgrade', { index: i });
+    const u = CLICK_UPGRADES[i];
+    const qty = getBuyQty(u);
+    if (qty <= 0) return;
+    const r = await server.action('buy_click_upgrade', { index: i, quantity: qty });
     if (r && r.success) {
       $gold = r.gold;
       CLICK_UPGRADES[i].count = r.upgrade_count;
       $clickPower = r.click_power;
-      $totalUpgradesBought++;
+      $totalUpgradesBought += qty;
+    }
+  }
+
+  async function buyAuto(i) {
+    const u = AUTO_UPGRADES[i];
+    const qty = getBuyQty(u);
+    if (qty <= 0) return;
+    const r = await server.action('buy_auto_upgrade', { index: i, quantity: qty });
+    if (r && r.success) {
+      $gold = r.gold;
+      AUTO_UPGRADES[i].count = r.upgrade_count;
+      $totalUpgradesBought += qty;
+      if (r.gps !== undefined) $gps = r.gps;
     }
   }
 
@@ -61,9 +84,10 @@
     if (r && r.success) {
       $gold = r.gold ?? $gold;
       $gems = r.gems ?? $gems;
-      // Boost will come through next sync
     }
   }
+
+  function amountLabel(a) { return a === -1 ? 'MAX' : a; }
 </script>
 
 <div class="mine-area">
@@ -80,23 +104,51 @@
   <button class="mine-btn" class:shake class:boosted={$activeBoost === 'click'} onclick={doMine}>⛏️ Minen!</button>
   {#if floatVisible}<div class="float-text">{floatText}</div>{/if}
 
-  <!-- Ad Boost Button -->
-  <div class="ad-section">
-    <button class="ad-btn" onclick={()=>watchAd('click_boost')}>📺 Werbung: Klick x2 (5 Min)</button>
-    <button class="ad-btn" onclick={()=>watchAd('gps_boost')}>📺 Werbung: GPS x2 (5 Min)</button>
-    <button class="ad-btn gem-ad" onclick={()=>watchAd('gems')}>💎 Werbung: +1 Gem</button>
+  <!-- Buy amount selector -->
+  <div class="buy-amount-bar">
+    {#each BUY_OPTIONS as a}
+      <button class="amt-btn" class:active={buyAmount === a} onclick={() => buyAmount = a}>{amountLabel(a)}</button>
+    {/each}
   </div>
 
-  <!-- Click Upgrades inline on mine page -->
-  <h3 class="section-title">⛏️ Spitzhacken-Upgrades</h3>
-  {#each CLICK_UPGRADES as u, i}
-    {@const c = cost(u.base, u.mult, u.count)}
-    <div class="upgrade" class:disabled={$gold < c}>
+  <!-- Ad Boost Buttons -->
+  <div class="ad-section">
+    <button class="ad-btn" onclick={()=>watchAd('click_boost')}>📺 Klick x2 (5 Min)</button>
+    <button class="ad-btn" onclick={()=>watchAd('gps_boost')}>📺 GPS x2 (5 Min)</button>
+    <button class="ad-btn gem-ad" onclick={()=>watchAd('gems')}>💎 +1 Gem</button>
+  </div>
+
+  <!-- Auto Upgrades -->
+  <h3 class="section-title">🤖 Automatische Ernte</h3>
+  {#each AUTO_UPGRADES as u, i}
+    {@const qty = getBuyQty(u)}
+    {@const c = buyAmount === -1 ? calcBatchCost(u.base, u.mult, u.count, qty) : cost(u.base, u.mult, u.count)}
+    <div class="upgrade" class:disabled={$gold < c || qty <= 0}>
       <div class="upgrade-info">
         <div class="upgrade-name">{u.name} <span class="count">x{u.count}</span></div>
         <div class="upgrade-desc">{u.desc}</div>
+        {#if buyAmount !== 1 && qty > 1}
+          <div class="upgrade-desc batch-info">{qty}x → {fmt(calcBatchCost(u.base, u.mult, u.count, qty))} 🪙</div>
+        {/if}
       </div>
-      <button class="upgrade-btn" disabled={$gold < c} onclick={()=>buyClick(i)}>{fmt(c)} 🪙</button>
+      <button class="upgrade-btn" disabled={$gold < c || qty <= 0} onclick={()=>buyAuto(i)}>{fmt(c)} 🪙</button>
+    </div>
+  {/each}
+
+  <!-- Click Upgrades -->
+  <h3 class="section-title">⛏️ Spitzhacken-Upgrades</h3>
+  {#each CLICK_UPGRADES as u, i}
+    {@const qty = getBuyQty(u)}
+    {@const c = buyAmount === -1 ? calcBatchCost(u.base, u.mult, u.count, qty) : cost(u.base, u.mult, u.count)}
+    <div class="upgrade" class:disabled={$gold < c || qty <= 0}>
+      <div class="upgrade-info">
+        <div class="upgrade-name">{u.name} <span class="count">x{u.count}</span></div>
+        <div class="upgrade-desc">{u.desc}</div>
+        {#if buyAmount !== 1 && qty > 1}
+          <div class="upgrade-desc batch-info">{qty}x → {fmt(calcBatchCost(u.base, u.mult, u.count, qty))} 🪙</div>
+        {/if}
+      </div>
+      <button class="upgrade-btn" disabled={$gold < c || qty <= 0} onclick={()=>buyClick(i)}>{fmt(c)} 🪙</button>
     </div>
   {/each}
 </div>
