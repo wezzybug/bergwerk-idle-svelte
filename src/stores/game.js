@@ -21,6 +21,8 @@ export const totalClicks = writable(0);
 export const totalUpgradesBought = writable(0);
 export const stats = writable({ offlineEarnings: 0, adsWatched: 0, prestiges: 0 });
 export const achievementsUnlocked = writable(new Set());
+export const displayName = writable(null);
+export const hasSetName = writable(false);
 
 export const clickValue = derived(
   [clickPower, clickMultiplier, prestigeMultiplier],

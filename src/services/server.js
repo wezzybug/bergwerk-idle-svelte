@@ -143,6 +143,24 @@ class Server {
     } catch (e) { this._onFail('leaderboard'); return null; }
   }
 
+  async setName(displayName) {
+    if (!this.deviceId || !navigator.onLine) return null;
+    try {
+      const res = await fetch(`${BASE}/profile`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-device-id': this.deviceId,
+          ...AUTH_HEADERS
+        },
+        body: JSON.stringify({ display_name: displayName })
+      });
+      if (!res.ok) { this._onFail('setName'); return null; }
+      this._onSuccess();
+      return await res.json();
+    } catch (e) { this._onFail('setName'); return null; }
+  }
+
   async watchAd(type) {
     if (!navigator.onLine) return null;
     try {

@@ -1,6 +1,6 @@
 <script>
   import { onMount } from 'svelte';
-  import { gold, totalGold, totalGoldAllTime, gps, prestigeMultiplier, clickPower, clickMultiplier, clickValue, gpsValue, totalClicks, totalUpgradesBought, gems, easter1M, easter1B, activeBoost, boostEnd, activeAdBoost, marketEvent, marketEventEnd, stats, achievementsUnlocked } from './stores/game.js';
+  import { gold, totalGold, totalGoldAllTime, gps, prestigeMultiplier, clickPower, clickMultiplier, clickValue, gpsValue, totalClicks, totalUpgradesBought, gems, easter1M, easter1B, activeBoost, boostEnd, activeAdBoost, marketEvent, marketEventEnd, stats, achievementsUnlocked, displayName, hasSetName } from './stores/game.js';
   import { CLICK_UPGRADES, AUTO_UPGRADES, GEM_UPGRADES, JOBS, STOCKS, ACHIEVEMENTS } from './data/gameData.js';
   import { server, serverOnline } from './services/server.js';
   import { generateDeviceId, fmt } from './utils/format.js';
@@ -25,9 +25,36 @@
   let stocksRef = $state(null);
   let jobsRef = $state(null);
 
+  // Nickname modal state
+  let showNicknameModal = $state(false);
+  let nicknameInput = $state('');
+  let nicknameError = $state('');
+  let nicknameSaving = $state(false);
+
+  async function saveNickname() {
+    const name = nicknameInput.trim();
+    if (!name) { nicknameError = 'Gib einen Namen ein!'; return; }
+    if (name.length > 20) { nicknameError = 'Maximal 20 Zeichen'; return; }
+    nicknameSaving = true;
+    nicknameError = '';
+    const r = await server.setName(name);
+    if (r && r.success) {
+      $displayName = r.display_name;
+      $hasSetName = true;
+      showNicknameModal = false;
+    } else {
+      nicknameError = 'Fehler beim Speichern — später über Einstellungen';
+    }
+    nicknameSaving = false;
+  }
+
+  function skipNickname() {
+    $hasSetName = true;
+    showNicknameModal = false;
+  }
+
   // ====== SERVER SYNC — SOLE SOURCE OF TRUTH ======
   onMount(() => {
-    // Register service worker for PWA (respect base-path for GitHub Pages)
     if ('serviceWorker' in navigator) {
       const swPath = (import.meta.env.BASE_URL || '/') + 'sw.js';
       navigator.serviceWorker.register(swPath).catch(() => {});
@@ -36,11 +63,9 @@
     const deviceId = generateDeviceId();
     server.init(deviceId);
 
-    // Sync every 5 seconds — server is the boss
     const syncInterval = setInterval(doSync, 5000);
-    doSync(); // initial sync
+    doSync();
 
-    // Offline gold tick (only when server unreachable, as fallback)
     let lastTick = Date.now();
     const goldTick = setInterval(() => {
       if (!$serverOnline && $gpsValue > 0) {
@@ -60,6 +85,15 @@
     const data = await server.sync();
     if (!data || !data.success || !data.state) return;
 
+    // Nickname from server
+    if (data.display_name) {
+      $displayName = data.display_name;
+      $hasSetName = true;
+    } else {
+      // No name set yet — show modal
+      showNicknameModal = true;
+    }
+
     // SERVER STATE — always authoritative
     const s = data.state;
     $gold = s.gold;
@@ -75,7 +109,6 @@
     if (s.easter_1m) $easter1M = true;
     if (s.easter_1b) $easter1B = true;
 
-    // Boosts & Events
     if (s.active_boost) { $activeBoost = s.active_boost; $boostEnd = s.boost_end || 0; }
     else { $activeBoost = null; $boostEnd = 0; }
     if (s.active_ad_boost) { $activeAdBoost = s.active_ad_boost; }
@@ -83,12 +116,9 @@
     if (s.market_event) { $marketEvent = s.market_event; $marketEventEnd = s.market_event_end || 0; }
     else { $marketEvent = null; $marketEventEnd = 0; }
 
-    // Stats
     if (s.stats) $stats = s.stats;
 
-    // Upgrades — overwrite local with server counts
     if (data.upgrades) {
-      // Reset counts first
       CLICK_UPGRADES.forEach(u => u.count = 0);
       AUTO_UPGRADES.forEach(u => u.count = 0);
       GEM_UPGRADES.forEach(u => u.count = 0);
@@ -99,24 +129,20 @@
       });
     }
 
-    // Jobs
     if (data.jobs) {
       JOBS.forEach(j => j.count = 0);
       data.jobs.forEach(j => { if (JOBS[j.job_index]) JOBS[j.job_index].count = j.count; });
     }
 
-    // Active job state sync
     if (jobsRef && data.jobs) {
       jobsRef.syncJobs(data.jobs);
     }
 
-    // Stocks
     if (stocksRef) {
       stocksRef.loadServerHoldings(data.stocks);
       stocksRef.loadServerPrices(data.stock_prices);
     }
 
-    // Achievements
     if (data.achievements) {
       const set = new Set();
       data.achievements.forEach(a => set.add(a.achievement_id));
@@ -126,9 +152,36 @@
 </script>
 
 <main>
+  <!-- Nickname Modal -->
+  {#if showNicknameModal && !$hasSetName}
+    <div class="modal-overlay">
+      <div class="modal-box">
+        <div class="modal-icon">👷</div>
+        <h2>Wie heißt du, Bergmann?</h2>
+        <p class="modal-desc">Dein Name erscheint in der Rangliste</p>
+        <input
+          type="text"
+          class="modal-input"
+          placeholder="Dein Spitzname..."
+          maxlength="20"
+          bind:value={nicknameInput}
+          onkeydown={(e) => e.key === 'Enter' && saveNickname()}
+        />
+        {#if nicknameError}<div class="modal-error">{nicknameError}</div>{/if}
+        <div class="modal-buttons">
+          <button class="modal-btn primary" disabled={nicknameSaving} onclick={saveNickname}>
+            {nicknameSaving ? 'Speichere...' : '⛏️ Los geht\'s!'}
+          </button>
+          <button class="modal-btn secondary" onclick={skipNickname}>Überspringen</button>
+        </div>
+      </div>
+    </div>
+  {/if}
+
   <header>
     <h1>⛏️ Bergwerk Idle</h1>
     <div class="header-stats">
+      {#if $displayName}<span class="nickname-tag">👷 {$displayName}</span>{/if}
       <span>🪙 {fmt($gold)}</span>
       <span>⚡ {fmt($gpsValue)}/s</span>
       {#if $gems > 0}<span>💎 {fmt($gems)}</span>{/if}
