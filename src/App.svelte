@@ -111,8 +111,12 @@
 
     if (s.active_boost) { $activeBoost = s.active_boost; $boostEnd = s.boost_end || 0; }
     else { $activeBoost = null; $boostEnd = 0; }
-    if (s.active_ad_boost) { $activeAdBoost = s.active_ad_boost; }
-    else { $activeAdBoost = null; }
+    // Parse ad_boosts array from server
+    if (data.ad_boosts && data.ad_boosts.length > 0) {
+      const latest = data.ad_boosts[data.ad_boosts.length - 1];
+      const type = latest.ad_type === 'click_boost' ? 'click' : latest.ad_type === 'gps_boost' ? 'auto' : 'gold';
+      $activeAdBoost = { type, end: new Date(latest.expires_at).getTime() };
+    } else { $activeAdBoost = null; }
     if (s.market_event) { $marketEvent = s.market_event; $marketEventEnd = s.market_event_end || 0; }
     else { $marketEvent = null; $marketEventEnd = 0; }
 
