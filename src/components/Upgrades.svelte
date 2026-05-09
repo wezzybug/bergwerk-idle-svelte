@@ -1,5 +1,5 @@
 <script>
-  import { gold, gems, gps, clickPower, totalUpgradesBought } from '../stores/game.js';
+  import { gold, gems, gps, clickPower, clickMultiplier, totalUpgradesBought } from '../stores/game.js';
   import { CLICK_UPGRADES, AUTO_UPGRADES, GEM_UPGRADES } from '../data/gameData.js';
   import { server } from '../services/server.js';
   import { fmt, cost } from '../utils/format.js';
@@ -29,7 +29,9 @@
       $gold = r.gold;
       AUTO_UPGRADES[i].count = r.upgrade_count;
       $totalUpgradesBought++;
-      recalcGPS();
+      // Use server-authoritative GPS if available
+      if (r.gps !== undefined) $gps = r.gps;
+      else recalcGPS();
     }
   }
 
@@ -41,6 +43,7 @@
       $gold = r.gold ?? $gold;
       $gems = r.gems ?? $gems;
       GEM_UPGRADES[i].count = r.upgrade_count;
+      if (r.click_multiplier !== undefined) $clickMultiplier = r.click_multiplier;
     }
   }
 </script>

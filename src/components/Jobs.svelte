@@ -24,18 +24,31 @@
   // Sync active jobs from server
   export function syncJobs(serverJobs) {
     if (!serverJobs) return;
+    const now = Date.now();
     serverJobs.forEach(j => {
       const job = JOBS[j.job_index];
       if (!job) return;
       const id = job.id;
-      if (j.active) {
-        const endTime = (j.start_time || Date.now() / 1000) * 1000 + job.duration * 1000;
-        activeJobs[id] = { start: (j.start_time || Date.now() / 1000) * 1000, end: endTime, duration: job.duration, done: endTime <= Date.now() };
-      } else {
-        if (j.cooldown_end) {
-          jobCooldowns[id] = j.cooldown_end * 1000;
-        }
+
+      if (j.status === 'running' && j.start_time) {
+        const startTime = new Date(j.start_time).getTime();
+        const duration = j.duration_ms || job.duration * 1000;
+        const endTime = startTime + duration;
+        activeJobs[id] = { start: startTime, end: endTime, duration: duration / 1000, done: endTime <= now };
+      } else if (j.status === 'cooldown' && j.cooldown_end) {
+        jobCooldowns[id] = new Date(j.cooldown_end).getTime();
         delete activeJobs[id];
+      } else {
+        // Default: job available
+        delete activeJobs[id];
+        if (j.cooldown_end) {
+          const cooldownEnd = new Date(j.cooldown_end).getTime();
+          if (cooldownEnd > now) {
+            jobCooldowns[id] = cooldownEnd;
+          } else {
+            delete jobCooldowns[id];
+          }
+        }
       }
     });
     activeJobs = { ...activeJobs };
@@ -53,7 +66,17 @@
           changed = true;
         }
       }
-      if (changed) activeJobs = { ...activeJobs };
+      // Clean up expired cooldowns
+      for (const id in jobCooldowns) {
+        if (jobCooldowns[id] <= Date.now()) {
+          delete jobCooldowns[id];
+          changed = true;
+        }
+      }
+      if (changed) {
+        activeJobs = { ...activeJobs };
+        jobCooldowns = { ...jobCooldowns };
+      }
     }, 1000);
     return () => clearInterval(timer);
   });
@@ -61,7 +84,8 @@
   async function startJob(id) {
     const r = await server.action('start_job', { job_id: id });
     if (r && r.success) {
-      activeJobs[id] = { start: Date.now(), end: Date.now() + r.duration * 1000, duration: r.duration, done: false };
+      const duration = r.duration * 1000;
+      activeJobs[id] = { start: r.start_time || Date.now(), end: (r.start_time || Date.now()) + duration, duration: r.duration, done: false };
       activeJobs = { ...activeJobs };
     }
   }
@@ -74,7 +98,9 @@
       $totalGoldAllTime = r.total_gold_all_time ?? $totalGoldAllTime;
       const job = JOBS.find(j => j.id === id);
       if (job) job.count++;
-      if (r.cooldown_end) jobCooldowns[id] = r.cooldown_end * 1000;
+      if (r.cooldown_end) {
+        jobCooldowns[id] = new Date(r.cooldown_end).getTime();
+      }
       delete activeJobs[id];
       activeJobs = { ...activeJobs };
       jobCooldowns = { ...jobCooldowns };
