@@ -17,17 +17,22 @@
 
   export function loadServerPrices(prices) {
     if (!prices) return;
+    let changed = false;
     prices.forEach(sp => {
       if (stockState[sp.stock_index] !== undefined) {
         const s = stockState[sp.stock_index];
-        s.prevPrice = s.price; // old price becomes prev
-        s.price = sp.current_price;
-        s.trend = sp.trend || 0;
-        s.history.push(sp.current_price);
-        if (s.history.length > 20) s.history.shift();
+        const newPrice = sp.current_price;
+        if (s.price !== newPrice) {
+          s.prevPrice = s.price; // only update prevPrice when price actually changed
+          s.price = newPrice;
+          s.trend = sp.trend || 0;
+          s.history.push(newPrice);
+          if (s.history.length > 20) s.history.shift();
+          changed = true;
+        }
       }
     });
-    stockState = [...stockState];
+    if (changed) stockState = [...stockState];
   }
 
   export function loadServerHoldings(holdings) {

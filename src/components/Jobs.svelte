@@ -6,6 +6,7 @@
 
   let activeJobs = $state({});
   let jobCooldowns = $state({});
+  let _needsFlush = $state(false); // single flush toggle — no redundant spreads
 
   function jobReward(job) {
     if (job.multReward) return Math.floor(job.reward * ($gps || 1) * $prestigeMultiplier * (job.duration / 10));
@@ -19,6 +20,15 @@
   function jobTimeLeft(id) {
     if (!activeJobs[id]) return 0;
     return Math.max(0, (activeJobs[id].end - Date.now()) / 1000);
+  }
+
+  // Single state flush — called by both sync and timer
+  function _flush() {
+    if (_needsFlush) {
+      activeJobs = { ...activeJobs };
+      jobCooldowns = { ...jobCooldowns };
+      _needsFlush = false;
+    }
   }
 
   // Sync active jobs from server
@@ -39,7 +49,6 @@
         jobCooldowns[id] = new Date(j.cooldown_end).getTime();
         delete activeJobs[id];
       } else {
-        // Default: job available
         delete activeJobs[id];
         if (j.cooldown_end) {
           const cooldownEnd = new Date(j.cooldown_end).getTime();
@@ -51,8 +60,7 @@
         }
       }
     });
-    activeJobs = { ...activeJobs };
-    jobCooldowns = { ...jobCooldowns };
+    _needsFlush = true;
   }
 
   // Timer to mark jobs as done when timer expires
@@ -66,17 +74,14 @@
           changed = true;
         }
       }
-      // Clean up expired cooldowns
       for (const id in jobCooldowns) {
         if (jobCooldowns[id] <= Date.now()) {
           delete jobCooldowns[id];
           changed = true;
         }
       }
-      if (changed) {
-        activeJobs = { ...activeJobs };
-        jobCooldowns = { ...jobCooldowns };
-      }
+      if (changed) _needsFlush = true;
+      _flush();
     }, 1000);
     return () => clearInterval(timer);
   });
@@ -86,7 +91,8 @@
     if (r && r.success) {
       const duration = r.duration * 1000;
       activeJobs[id] = { start: r.start_time || Date.now(), end: (r.start_time || Date.now()) + duration, duration: r.duration, done: false };
-      activeJobs = { ...activeJobs };
+      _needsFlush = true;
+      _flush();
     }
   }
 
@@ -102,8 +108,8 @@
         jobCooldowns[id] = new Date(r.cooldown_end).getTime();
       }
       delete activeJobs[id];
-      activeJobs = { ...activeJobs };
-      jobCooldowns = { ...jobCooldowns };
+      _needsFlush = true;
+      _flush();
     }
   }
 </script>

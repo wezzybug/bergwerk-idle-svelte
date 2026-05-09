@@ -6,6 +6,7 @@
   let shake = $state(false);
   let floatText = $state('');
   let floatVisible = $state(false);
+  let clickLocked = $state(false);
 
   let boostName = $derived(
     $activeBoost === 'click' ? '⚡ Klick x2' :
@@ -26,6 +27,10 @@
   });
 
   async function doMine() {
+    if (clickLocked) return;
+    clickLocked = true;
+    setTimeout(() => clickLocked = false, 200);
+
     const r = await server.action('mine');
     if (r && r.success) {
       // Server is authoritative — use its values directly

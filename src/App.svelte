@@ -27,9 +27,10 @@
 
   // ====== SERVER SYNC — SOLE SOURCE OF TRUTH ======
   onMount(() => {
-    // Register service worker for PWA
+    // Register service worker for PWA (respect base-path for GitHub Pages)
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(() => {});
+      const swPath = (import.meta.env.BASE_URL || '/') + 'sw.js';
+      navigator.serviceWorker.register(swPath).catch(() => {});
     }
 
     const deviceId = generateDeviceId();
@@ -52,7 +53,7 @@
       lastTick = Date.now();
     }, 1000);
 
-    return () => { clearInterval(syncInterval); clearInterval(goldTick); };
+    return () => { clearInterval(syncInterval); clearInterval(goldTick); server.destroy(); };
   });
 
   async function doSync() {
