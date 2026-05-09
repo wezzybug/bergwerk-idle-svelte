@@ -1,5 +1,5 @@
 <script>
-  import { gold, totalGoldAllTime, gems, prestigeMultiplier, clickPower, clickMultiplier, gps, totalUpgradesBought, totalClicks } from '../stores/game.js';
+  import { gold, totalGoldAllTime, gems, prestigeMultiplier, clickPower, clickMultiplier, gps, totalUpgradesBought, totalClicks, activeAdBoost } from '../stores/game.js';
   import { GEM_UPGRADES } from '../data/gameData.js';
   import { server } from '../services/server.js';
   import { fmt, cost } from '../utils/format.js';
@@ -8,6 +8,17 @@
 
   // Prestige info for the shop
   let nextPrestigeGems = $derived(Math.floor(Math.sqrt($totalGoldAllTime / 1e6)));
+
+  let adBoostLeft = $derived($activeAdBoost && $activeAdBoost.end > Date.now() ? Math.max(0, ($activeAdBoost.end - Date.now()) / 1000) : 0);
+  let adBoostName = $derived($activeAdBoost?.type === 'auto' ? '📺 GPS x2' : '📺 Klick x2');
+
+  import { onMount } from 'svelte';
+  onMount(() => {
+    const timer = setInterval(() => {
+      if ($activeAdBoost && Date.now() >= $activeAdBoost.end) $activeAdBoost = null;
+    }, 1000);
+    return () => clearInterval(timer);
+  });
 
   async function buyGem(i) {
     const u = GEM_UPGRADES[i];
@@ -22,11 +33,17 @@
     }
   }
 
-  // Gold-bought boosts
-  async function buyGoldBoost(type) {
-    const r = await server.action('buy_boost', { boost_type: type });
+  async function watchAd(type) {
+    const r = await server.watchAd(type);
     if (r && r.success) {
-      $gold = r.gold;
+      $gold = r.gold ?? $gold;
+      $gems = r.gems ?? $gems;
+      // Update ad boost state immediately
+      if (type === 'click_boost') {
+        $activeAdBoost = { type: 'click', end: Date.now() + 5*60*1000 };
+      } else if (type === 'gps_boost') {
+        $activeAdBoost = { type: 'auto', end: Date.now() + 5*60*1000 };
+      }
     }
   }
 </script>
@@ -41,7 +58,7 @@
 
 <div class="tab-bar">
   <button class="tab-btn" class:active={tab==='gems'} onclick={()=>tab='gems'}>💎 Gem-Upgrades</button>
-  <button class="tab-btn" class:active={tab==='boosts'} onclick={()=>tab='boosts'}>⚡ Boosts</button>
+  <button class="tab-btn" class:active={tab==='ad'} onclick={()=>tab='ad'}>📺 Werbe-Boosts</button>
 </div>
 
 {#if tab === 'gems'}
@@ -57,30 +74,37 @@
       <button class="upgrade-btn gem-btn" disabled={maxed || $gems < c} onclick={()=>buyGem(i)}>💎 {maxed ? 'MAX' : c}</button>
     </div>
   {/each}
-{:else if tab === 'boosts'}
-  <p class="shop-note">Einmal-Boosts für Gold — sofort aktiv!</p>
+{:else if tab === 'ad'}
+  <p class="shop-note">Werbung schauen → Boosts freischalten!</p>
+
+  {#if $activeAdBoost && adBoostLeft > 0}
+    <div class="active-boost-bar">
+      <div class="boost-text">{adBoostName} läuft noch {Math.ceil(adBoostLeft)}s</div>
+      <div class="boost-fill" style="width:{adBoostLeft/300*100}%"></div>
+    </div>
+  {/if}
 
   <div class="upgrade">
     <div class="upgrade-info">
-      <div class="upgrade-name">🔨 Produktivitätsschub</div>
-      <div class="upgrade-desc">GPS x2 für 2 Stunden</div>
+      <div class="upgrade-name">📺 Klick x2 (5 Min)</div>
+      <div class="upgrade-desc">Schau Ad → Klicks 2x so wertvoll</div>
     </div>
-    <button class="upgrade-btn" disabled={$gold < 100000} onclick={()=>buyGoldBoost('gps_2h')}>{fmt(100000)} 🪙</button>
+    <button class="upgrade-btn ad-btn" onclick={()=>watchAd('click_boost')}>📺 Watch</button>
   </div>
 
   <div class="upgrade">
     <div class="upgrade-info">
-      <div class="upgrade-name">💪 Klick-Rausch</div>
-      <div class="upgrade-desc">Klick x2 für 1 Stunde</div>
+      <div class="upgrade-name">📺 GPS x2 (10 Min)</div>
+      <div class="upgrade-desc">Schau Ad → GPS 2x so hoch</div>
     </div>
-    <button class="upgrade-btn" disabled={$gold < 50000} onclick={()=>buyGoldBoost('click_1h')}>{fmt(50000)} 🪙</button>
+    <button class="upgrade-btn ad-btn" onclick={()=>watchAd('gps_boost')}>📺 Watch</button>
   </div>
 
   <div class="upgrade">
     <div class="upgrade-info">
-      <div class="upgrade-name">🎰 Glücksfund</div>
-      <div class="upgrade-desc">Zufälliger Goldbonus (500-50.000)</div>
+      <div class="upgrade-name">💎 +1 Gem</div>
+      <div class="upgrade-desc">5000 Gold → +1 Gem (sofort)</div>
     </div>
-    <button class="upgrade-btn" disabled={$gold < 1000} onclick={()=>buyGoldBoost('lucky')}>{fmt(1000)} 🪙</button>
+    <button class="upgrade-btn gem-btn" disabled={$gold < 5000} onclick={()=>watchAd('gems')}>💎 5000 🪙</button>
   </div>
 {/if}

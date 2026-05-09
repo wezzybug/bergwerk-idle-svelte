@@ -67,6 +67,9 @@ header h1{font-size:1.3rem;color:var(--gold);text-shadow:0 0 10px var(--gold-dim
 .ad-btn{background:var(--bg-accent);color:var(--blue);border:1px solid var(--blue);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:.7rem;font-weight:600;transition:all .15s}
 .ad-btn:hover{background:#1a2f4a}
 .gem-ad{border-color:var(--blue);color:#fff}
+.active-boost-bar{width:100%;height:24px;background:rgba(0,0,0,0.3);border-radius:8px;overflow:hidden;margin:8px 0}
+.boost-text{position:absolute;width:100%;text-align:center;color:#fff;font-size:.68rem;font-weight:600;drop-shadow:0 1px 2px #000}
+.boost-fill{height:100%;background:linear-gradient(90deg, var(--gold), #ffd700);transition:width .3s}
 .section-title{color:var(--gold);font-size:.9rem;margin:12px 0 4px;text-align:left;border-bottom:1px solid var(--border);padding-bottom:3px}
 
 /* Buy Amount Selector */
